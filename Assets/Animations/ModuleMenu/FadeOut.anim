@@ -23,7 +23,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0
+        value: 15
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -50,7 +50,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.5
-        value: 0
+        value: 15
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -61,7 +61,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_AnchoredPosition.x
-    path: Modules
+    path: 
     classID: 224
     script: {fileID: 0}
     flags: 0
@@ -71,7 +71,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0
+        value: -27
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -82,7 +82,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_AnchoredPosition.y
-    path: Modules
+    path: 
     classID: 224
     script: {fileID: 0}
     flags: 0
@@ -92,7 +92,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -20
+        value: 0
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -101,7 +101,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.25
-        value: -420
+        value: -400
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -110,7 +110,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.33333334
-        value: -420
+        value: -400
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -119,7 +119,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.5
-        value: -20
+        value: 0
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -130,7 +130,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_AnchoredPosition.x
-    path: Modules/ExitButton
+    path: ExitButton
     classID: 224
     script: {fileID: 0}
     flags: 0
@@ -178,7 +178,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_AnchoredPosition.y
-    path: Modules/ExitButton
+    path: ExitButton
     classID: 224
     script: {fileID: 0}
     flags: 0
@@ -226,7 +226,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_AnchoredPosition.x
-    path: Modules/Title
+    path: Title
     classID: 224
     script: {fileID: 0}
     flags: 0
@@ -274,7 +274,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_AnchoredPosition.y
-    path: Modules/Title
+    path: Title
     classID: 224
     script: {fileID: 0}
     flags: 0
@@ -287,7 +287,7 @@ AnimationClip:
   m_ClipBindingConstant:
     genericBindings:
     - serializedVersion: 2
-      path: 3775560267
+      path: 0
       attribute: 1460864421
       script: {fileID: 0}
       typeID: 224
@@ -296,7 +296,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 3635807311
+      path: 2341044831
       attribute: 1460864421
       script: {fileID: 0}
       typeID: 224
@@ -305,7 +305,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 3635807311
+      path: 2341044831
       attribute: 538195251
       script: {fileID: 0}
       typeID: 224
@@ -314,7 +314,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 2056121856
+      path: 3942078319
       attribute: 1460864421
       script: {fileID: 0}
       typeID: 224
@@ -323,7 +323,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 2056121856
+      path: 3942078319
       attribute: 538195251
       script: {fileID: 0}
       typeID: 224
@@ -332,7 +332,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 3775560267
+      path: 0
       attribute: 538195251
       script: {fileID: 0}
       typeID: 224
@@ -368,7 +368,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0
+        value: 15
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -395,7 +395,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.5
-        value: 0
+        value: 15
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -406,7 +406,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_AnchoredPosition.x
-    path: Modules
+    path: 
     classID: 224
     script: {fileID: 0}
     flags: 0
@@ -416,7 +416,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0
+        value: -27
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -427,7 +427,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_AnchoredPosition.y
-    path: Modules
+    path: 
     classID: 224
     script: {fileID: 0}
     flags: 0
@@ -437,7 +437,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -20
+        value: 0
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -446,7 +446,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.25
-        value: -420
+        value: -400
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -455,7 +455,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.33333334
-        value: -420
+        value: -400
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -464,7 +464,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.5
-        value: -20
+        value: 0
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -475,7 +475,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_AnchoredPosition.x
-    path: Modules/ExitButton
+    path: ExitButton
     classID: 224
     script: {fileID: 0}
     flags: 0
@@ -523,7 +523,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_AnchoredPosition.y
-    path: Modules/ExitButton
+    path: ExitButton
     classID: 224
     script: {fileID: 0}
     flags: 0
@@ -571,7 +571,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_AnchoredPosition.x
-    path: Modules/Title
+    path: Title
     classID: 224
     script: {fileID: 0}
     flags: 0
@@ -619,7 +619,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_AnchoredPosition.y
-    path: Modules/Title
+    path: Title
     classID: 224
     script: {fileID: 0}
     flags: 0
@@ -628,9 +628,9 @@ AnimationClip:
   m_HasMotionFloatCurves: 0
   m_Events:
   - time: 0.25
-    functionName: 
+    functionName: ApplyEvent
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
-    intParameter: 0
+    intParameter: 1
     messageOptions: 0
