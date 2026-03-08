@@ -16,7 +16,9 @@ public class SC_TPSController : MonoBehaviour
 
     [Header("Attack")]
     [SerializeField] float attackDelay = 0.4f;    
-    [SerializeField] float attackCooldown = 1.2f;  
+    [SerializeField] float attackCooldown = 1.2f;
+    [SerializeField] private Transform hitPoint;
+    [SerializeField] private LayerMask targetLayer;
 
     [Header("Camera")]
     [SerializeField] private Transform cameraParent;
@@ -31,6 +33,8 @@ public class SC_TPSController : MonoBehaviour
     private float currentYRotation;
     private float rotationVelocity;
     private float cameraXRotation;
+    private bool isAttack = false;
+    private bool getAttack = false;
 
     private void Start()
     {
@@ -45,13 +49,14 @@ public class SC_TPSController : MonoBehaviour
     {
         HandleCamera();
         HandleMovement();
-
+        DealDamage();
         if (Input.GetButton("Fire1"))
             HandleAttack();
     }
 
     private void HandleCamera()
     {
+
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
 
@@ -61,6 +66,7 @@ public class SC_TPSController : MonoBehaviour
         cameraXRotation = Mathf.Clamp(cameraXRotation, -verticalLookLimit, verticalLookLimit);
 
         cameraParent.localRotation = Quaternion.Euler(cameraXRotation, currentYRotation, 0f);
+
     }
     private void HandleAttack()
     {
@@ -110,8 +116,8 @@ public class SC_TPSController : MonoBehaviour
                 ref rotationVelocity,
                 rotationSmoothTime
             );
-
-            transform.rotation = Quaternion.Euler(0f, smoothAngle, 0f);
+            if(!isAttack)
+                transform.rotation = Quaternion.Euler(0f, smoothAngle, 0f);
 
             Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
 
@@ -122,8 +128,7 @@ public class SC_TPSController : MonoBehaviour
         }
         else
         {
-            // 🔥 ВАЖНО:
-            // Если НЕТ ввода — обнуляем горизонтальную скорость
+             
             velocity.x = 0f;
             velocity.z = 0f;
         }
@@ -140,7 +145,23 @@ public class SC_TPSController : MonoBehaviour
     }
     private void DealDamage()
     {
-        Debug.Log("Урон нанесён");
+        if (getAttack == true)
+        {
+
+            Ray ray = new Ray(hitPoint.position, hitPoint.forward);
+            RaycastHit hit;
+
+            if (Physics.Raycast(ray, out hit, 0.3f, targetLayer))
+            {
+                hit.collider.gameObject.SetActive(false);
+                 
+                getAttack = false;
+                return;
+            }
+
+
+            Debug.DrawRay(hitPoint.position, hitPoint.forward * 0.3f, Color.green);
+        }
     }
     private Animator GetHandAnimator(string handName)
     {
@@ -153,6 +174,26 @@ public class SC_TPSController : MonoBehaviour
             }
         }
         return null;
+    }
+    private IEnumerator RotateToCamera()
+    {
+        isAttack = true;
+        Quaternion startRot = transform.rotation;
+        Quaternion targetRot = Quaternion.Euler(0f, currentYRotation, 0f);
+
+        float time = 0f;
+        float duration = 0.15f; // скорость поворота
+
+        while (time < duration)
+        {
+            time += Time.deltaTime;
+            transform.rotation = Quaternion.Slerp(startRot, targetRot, time / duration);
+            yield return null;
+        }
+
+        transform.rotation = targetRot;
+        yield return new WaitForSeconds(0.5f);
+        isAttack = false;
     }
     private IEnumerator AttackRoutine()
     {
@@ -181,11 +222,11 @@ public class SC_TPSController : MonoBehaviour
             if (targetAnimator != null)
                 targetAnimator.Play("Attack2");
         }
-
+        StartCoroutine(RotateToCamera());
         // Задержка перед нанесением урона
         yield return new WaitForSeconds(attackDelay);
 
-        DealDamage();
+        getAttack = true;
 
         // Кулдаун
         yield return new WaitForSeconds(attackCooldown);
