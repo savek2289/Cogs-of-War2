@@ -52,6 +52,10 @@ public class SC_TPSController : MonoBehaviour
         DealDamage();
         if (Input.GetButton("Fire1"))
             HandleAttack();
+        if (Input.GetButton("Fire2"))
+            isAttack = true;
+        if (Input.GetButtonUp("Fire2"))
+            isAttack = false;
     }
 
     private void HandleCamera()
@@ -107,30 +111,55 @@ public class SC_TPSController : MonoBehaviour
 
         float targetSpeed = isRunning ? runSpeed : walkSpeed;
 
-        if (inputDirection.magnitude >= 0.1f)
+        if (!isAttack)
         {
-            float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + currentYRotation;
-            float smoothAngle = Mathf.SmoothDampAngle(
-                transform.eulerAngles.y,
-                targetAngle,
-                ref rotationVelocity,
-                rotationSmoothTime
-            );
-            if(!isAttack)
+            if (inputDirection.magnitude >= 0.1f)
+            {
+                float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + currentYRotation;
+                float smoothAngle = Mathf.SmoothDampAngle(
+                    transform.eulerAngles.y,
+                    targetAngle,
+                    ref rotationVelocity,
+                    rotationSmoothTime
+                );
+
                 transform.rotation = Quaternion.Euler(0f, smoothAngle, 0f);
 
-            Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+                Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
 
-            float control = isGrounded ? 1f : airControlPercent;
+                float control = isGrounded ? 1f : airControlPercent;
 
-            velocity.x = moveDir.x * targetSpeed * control;
-            velocity.z = moveDir.z * targetSpeed * control;
+                velocity.x = moveDir.x * targetSpeed * control;
+                velocity.z = moveDir.z * targetSpeed * control;
+            }
+            else
+            {
+
+                velocity.x = 0f;
+                velocity.z = 0f;
+            }
         }
         else
         {
-             
-            velocity.x = 0f;
-            velocity.z = 0f;
+            if (inputDirection.magnitude >= 0.1f)
+            {
+                float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + currentYRotation;
+
+                transform.rotation = Quaternion.Euler(0f, currentYRotation, 0f);
+
+                Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+
+                float control = isGrounded ? 1f : airControlPercent;
+
+                velocity.x = moveDir.x * targetSpeed * control;
+                velocity.z = moveDir.z * targetSpeed * control;
+            }
+            else
+            {
+
+                velocity.x = 0f;
+                velocity.z = 0f;
+            }
         }
 
         if (Input.GetButtonDown("Jump") && isGrounded)
@@ -175,26 +204,26 @@ public class SC_TPSController : MonoBehaviour
         }
         return null;
     }
-    private IEnumerator RotateToCamera()
-    {
-        isAttack = true;
-        Quaternion startRot = transform.rotation;
-        Quaternion targetRot = Quaternion.Euler(0f, currentYRotation, 0f);
+    //private IEnumerator RotateToCamera()
+    //{
+    //    isAttack = true;
+    //    Quaternion startRot = transform.rotation;
+    //    Quaternion targetRot = Quaternion.Euler(0f, currentYRotation, 0f);
 
-        float time = 0f;
-        float duration = 0.15f; // скорость поворота
+    //    float time = 0f;
+    //    float duration = 0.15f; // скорость поворота
 
-        while (time < duration)
-        {
-            time += Time.deltaTime;
-            transform.rotation = Quaternion.Slerp(startRot, targetRot, time / duration);
-            yield return null;
-        }
+    //    while (time < duration)
+    //    {
+    //        time += Time.deltaTime;
+    //        transform.rotation = Quaternion.Slerp(startRot, targetRot, time / duration);
+    //        yield return null;
+    //    }
 
-        transform.rotation = targetRot;
-        yield return new WaitForSeconds(0.5f);
-        isAttack = false;
-    }
+    //    transform.rotation = targetRot;
+    //    yield return new WaitForSeconds(0.5f);
+    //    isAttack = false;
+    //}
     private IEnumerator AttackRoutine()
     {
         canAttack = false;
@@ -222,7 +251,7 @@ public class SC_TPSController : MonoBehaviour
             if (targetAnimator != null)
                 targetAnimator.Play("Attack2");
         }
-        StartCoroutine(RotateToCamera());
+        //StartCoroutine(RotateToCamera());
         // Задержка перед нанесением урона
         yield return new WaitForSeconds(attackDelay);
 

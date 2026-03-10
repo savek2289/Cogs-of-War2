@@ -53,6 +53,7 @@ public class SC_EnemyAI : MonoBehaviour
 
     private void Start()
     {
+        player = GameObject.Find("TPS").transform;
         agent = GetComponent<NavMeshAgent>();
         anim = GetComponentInChildren<Animator>();
 
