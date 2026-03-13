@@ -60,29 +60,37 @@ public class ModuleButton : Button
 
         if (!firstPressReceived)
         {
+            // ѕервый клик - предварительный просмотр
             firstPressReceived = true;
             IsAwaitingConfirmation = true;
-            pendingButton = this; 
+            pendingButton = this;
 
             if (TryGetComponent<UIModule>(out UIModule module))
             {
-                Dictionary<string, object> values = module.GetValues();
+                List<UIModule.Values> values = module.GetValues();
 
-                foreach (var pair in values)
+                foreach (var value in values)
                 {
-                    string key = pair.Key;
-                    if (pair.Value is int intValue)
+                    string key = value.Name;
+                    int intValue = Mathf.RoundToInt(value.AddedValue);
+
+                    if (characteristics.HasCharacteristic(key))
                     {
                         characteristics.SetChanges(key, intValue);
                     }
+                    else
+                    {
+                        Debug.LogWarning($"ћодуль {gameObject.name} пытаетс€ изменить характеристику '{key}', которой нет в PlayerCharacteristics!");
+                    }
                 }
             }
-            characteristics.SetNeedToReset(true);
 
+            characteristics.SetNeedToReset(true);
             DoStateTransition(SelectionState.Selected, false);
         }
         else
         {
+            // ¬торой клик - подтверждение выбора
             IsAwaitingConfirmation = false;
             firstPressReceived = false;
 
@@ -90,8 +98,9 @@ public class ModuleButton : Button
                 pendingButton = null;
 
             base.OnPointerClick(eventData);
-            characteristics.SetCelectedModule(this);
+
             characteristics.ApplyChanges();
+            characteristics.SetCelectedModule(this);
 
             DoStateTransition(SelectionState.Normal, false);
         }
@@ -104,6 +113,11 @@ public class ModuleButton : Button
 
         if (pendingButton == this)
             pendingButton = null;
+
+        if (characteristics != null)
+        {
+            characteristics.SetNeedToReset(true);
+        }
 
         DoStateTransition(SelectionState.Normal, false);
     }

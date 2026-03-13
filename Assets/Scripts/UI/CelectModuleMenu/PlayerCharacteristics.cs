@@ -14,35 +14,44 @@ public class PlayerCharacteristics : MonoBehaviour
     public class Characteristic
     {
         [SerializeField] private string name;
+        [SerializeField] private int baseValue;          // базовое значение, настраивается в инспекторе
         [Space(10)]
         [SerializeField] Slider whiteSlider;
         [SerializeField] private Slider colorSlider;
         [SerializeField] private TextMeshProUGUI value;
 
         public string Name => name;
+        public int BaseValue => baseValue;
         public Slider WhiteSlider => whiteSlider;
         public Slider ColorSlider => colorSlider;
         public TextMeshProUGUI Value => value;
     }
 
+    [System.Serializable]
+    public class ModuleCategory
+    {
+        [SerializeField] private string categoryName;
+        [SerializeField] private List<UIModule> modules;
+
+        public string CategoryName => categoryName;
+        public List<UIModule> Modules => modules;
+    }
+
     [SerializeField] private List<Characteristic> characteristicsData;
     [Space(10)]
-    [SerializeField] private List<UIModule> modules;
+    [SerializeField] private List<ModuleCategory> allCategories;
     [Space(5)]
     [SerializeField] private GameObject celectFrame;
 
     private Dictionary<string, Characteristic> characteristicsMap;
-    private int? celectedModule = null;
-    private int currentHpValue;
-    private int currentDamageValue;
-    private int maxHpValue;
-    private int maxDamageValue;
+    private Dictionary<string, int> currentCharacteristicValues;   // подтверждённые значения
+    private Dictionary<string, int> baseCharacteristicValues;       // базовые (из инспектора)
+    private Dictionary<string, int> maxCharacteristicValues;        // максимально достижимые
 
+    private List<UIModule> allModulesList;          // плоский список всех модулей
+    private int? celectedModuleIndex = null;
     private bool lockApplyChanges = false;
     private bool needToReset = false;
-
-    private const int baseHpValue = 100;
-    private const int baseDamageValue = 10;
 
     private void Awake()
     {
@@ -50,7 +59,13 @@ public class PlayerCharacteristics : MonoBehaviour
 
         if (characteristicsData == null) return;
 
+        // Инициализация словарей
         characteristicsMap = new Dictionary<string, Characteristic>();
+        currentCharacteristicValues = new Dictionary<string, int>();
+        baseCharacteristicValues = new Dictionary<string, int>();
+        maxCharacteristicValues = new Dictionary<string, int>();
+
+        // Заполняем characteristicsMap из characteristicsData
         foreach (var characteristic in characteristicsData)
         {
             if (characteristic == null) continue;
@@ -60,52 +75,95 @@ public class PlayerCharacteristics : MonoBehaviour
                 Debug.LogWarning($"Duplicate characteristic name: {characteristic.Name}");
         }
 
-        maxHpValue = baseHpValue;
-        maxDamageValue = baseDamageValue;
+        // Собираем все модули в плоский список
+        allModulesList = new List<UIModule>();
+        foreach (var category in allCategories)
+            foreach (var module in category.Modules)
+                if (module != null && !allModulesList.Contains(module))
+                    allModulesList.Add(module);
 
-        foreach (var module in modules)
+        // Инициализируем базовые и текущие значения из инспектора
+        foreach (var pair in characteristicsMap)
         {
-            Dictionary<string, object> values = module.GetValues();
-            int moduleHpValue = values["Hp"].ConvertTo<int>();
-            if ((baseHpValue + moduleHpValue) > maxHpValue)
-                maxHpValue = baseHpValue + moduleHpValue;
+            string name = pair.Key;
+            Characteristic ch = pair.Value;
+            int baseVal = ch.BaseValue;
 
-            int moduleDamageValue = values["Damage"].ConvertTo<int>();
-            if ((baseDamageValue + moduleDamageValue) > maxDamageValue)
-                maxDamageValue = baseDamageValue + moduleDamageValue;
+            baseCharacteristicValues[name] = baseVal;
+            currentCharacteristicValues[name] = baseVal;
+            maxCharacteristicValues[name] = baseVal; // пока равно базе
         }
 
-        characteristicsMap["Hp"].Value.text = baseHpValue.ToString();
-        characteristicsMap["Hp"].WhiteSlider.maxValue = maxHpValue;
-        characteristicsMap["Hp"].WhiteSlider.value = baseHpValue;
-        characteristicsMap["Hp"].ColorSlider.maxValue = maxHpValue;
-        characteristicsMap["Hp"].ColorSlider.value = baseHpValue;
+        // Вычисляем максимальные значения для каждой характеристики,
+        // перебирая категории и выбирая лучший модуль в каждой категории.
+        foreach (var category in allCategories)
+        {
+            // Для каждой характеристики запомним максимальный бонус в этой категории
+            Dictionary<string, int> maxBonusInCategory = new Dictionary<string, int>();
 
-        characteristicsMap["Damage"].Value.text = baseDamageValue.ToString();
-        characteristicsMap["Damage"].WhiteSlider.maxValue = maxDamageValue;
-        characteristicsMap["Damage"].WhiteSlider.value = baseDamageValue;
-        characteristicsMap["Damage"].ColorSlider.maxValue = maxDamageValue;
-        characteristicsMap["Damage"].ColorSlider.value = baseDamageValue;
+            foreach (var module in category.Modules)
+            {
+                List<UIModule.Values> moduleValues = module.GetValues();
+                foreach (var mv in moduleValues)
+                {
+                    string charName = mv.Name;
+                    if (!characteristicsMap.ContainsKey(charName))
+                    {
+                        Debug.LogWarning($"Модуль {module.name} содержит характеристику '{charName}', которой нет в characteristicsData!");
+                        continue;
+                    }
 
-        currentHpValue = baseHpValue;
-        currentDamageValue = baseDamageValue;
+                    int intValue = Mathf.RoundToInt(mv.AddedValue);
+                    if (maxBonusInCategory.ContainsKey(charName))
+                    {
+                        if (intValue > maxBonusInCategory[charName])
+                            maxBonusInCategory[charName] = intValue;
+                    }
+                    else
+                    {
+                        maxBonusInCategory[charName] = intValue;
+                    }
+                }
+            }
+
+            // Добавляем найденные максимумы к общему максимуму
+            foreach (var kvp in maxBonusInCategory)
+            {
+                maxCharacteristicValues[kvp.Key] += kvp.Value;
+            }
+        }
+
+        // Настраиваем слайдеры в соответствии с полученными значениями
+        foreach (var pair in characteristicsMap)
+        {
+            string name = pair.Key;
+            Characteristic ch = pair.Value;
+            int baseVal = baseCharacteristicValues[name];
+            int maxVal = maxCharacteristicValues[name];
+
+            ch.WhiteSlider.maxValue = maxVal;
+            ch.ColorSlider.maxValue = maxVal;
+            ch.WhiteSlider.value = baseVal;
+            ch.ColorSlider.value = baseVal;
+            ch.Value.text = baseVal.ToString();
+            ch.ColorSlider.fillRect.GetComponent<Image>().color = Color.white;
+        }
     }
 
     public void SetChanges(string parametrName, int value)
     {
-        if (characteristicsMap == null) return;
-        if (characteristicsMap.TryGetValue(parametrName, out var characteristic))
-        {
-            StartCoroutine(SetChangesCoroutine(
-                characteristic.WhiteSlider,
-                characteristic.ColorSlider,
-                characteristic.Value,
-                value
-            ));
-        }
+        if (characteristicsMap == null || !characteristicsMap.ContainsKey(parametrName)) return;
+
+        StartCoroutine(SetChangesCoroutine(
+            characteristicsMap[parametrName].WhiteSlider,
+            characteristicsMap[parametrName].ColorSlider,
+            characteristicsMap[parametrName].Value,
+            parametrName,
+            value
+        ));
     }
 
-    private IEnumerator SetChangesCoroutine(Slider whiteSlider, Slider colorSlider, TextMeshProUGUI text, int value, float duration = 0.5f)
+    private IEnumerator SetChangesCoroutine(Slider whiteSlider, Slider colorSlider, TextMeshProUGUI text, string paramName, int value, float duration = 0.5f)
     {
         lockApplyChanges = true;
 
@@ -118,14 +176,18 @@ public class PlayerCharacteristics : MonoBehaviour
 
         if (needToReset)
         {
-            characteristicsMap["Hp"].Value.text = baseHpValue.ToString();
-            characteristicsMap["Hp"].WhiteSlider.value = baseHpValue;
-            characteristicsMap["Hp"].ColorSlider.value = baseHpValue;
+            // Сброс всех характеристик к подтверждённым значениям
+            foreach (var pair in characteristicsMap)
+            {
+                string name = pair.Key;
+                Characteristic ch = pair.Value;
+                int curVal = currentCharacteristicValues[name];
 
-            characteristicsMap["Damage"].Value.text = baseDamageValue.ToString();
-            characteristicsMap["Damage"].WhiteSlider.value = baseDamageValue;
-            characteristicsMap["Damage"].ColorSlider.value = baseDamageValue;
-
+                ch.Value.text = curVal.ToString();
+                ch.WhiteSlider.value = curVal;
+                ch.ColorSlider.value = curVal;
+                ch.ColorSlider.fillRect.GetComponent<Image>().color = Color.white;
+            }
             needToReset = false;
         }
 
@@ -149,6 +211,10 @@ public class PlayerCharacteristics : MonoBehaviour
             endWhite = startWhite + value;
             endColor = startColor;
         }
+
+        // Не даём выйти за пределы слайдера
+        endWhite = Mathf.Clamp(endWhite, whiteSlider.minValue, whiteSlider.maxValue);
+        endColor = Mathf.Clamp(endColor, colorSlider.minValue, colorSlider.maxValue);
 
         Color startImageColor = colorImage.color;
         Color targetColor = isPositive == true ? Color.green : Color.red;
@@ -193,58 +259,52 @@ public class PlayerCharacteristics : MonoBehaviour
 
         foreach (var pair in characteristicsMap)
         {
-            string paramName = pair.Key;
-            Characteristic characteristic = pair.Value;
-
-            Image colorImage = characteristic.ColorSlider.fillRect.GetComponent<Image>();
+            Characteristic ch = pair.Value;
+            Image colorImage = ch.ColorSlider.fillRect.GetComponent<Image>();
             Color currentColor = colorImage.color;
 
-            // Определяем, нужно ли что-то анимировать
             if (currentColor == Color.green)
             {
-                // Увеличивали – белый слайдер догоняет цветной
-                float targetValue = characteristic.ColorSlider.value;
-                activeCoroutines.Add(StartCoroutine(ApplySingleCharacteristic(
-                    characteristic.WhiteSlider, targetValue, colorImage, currentColor)));
+                float targetValue = ch.ColorSlider.value;
+                activeCoroutines.Add(StartCoroutine(ApplySingleCharacteristic(ch.WhiteSlider, targetValue, colorImage, currentColor)));
             }
             else if (currentColor == Color.red)
             {
-                // Уменьшали – цветной слайдер догоняет белый
-                float targetValue = characteristic.WhiteSlider.value;
-                activeCoroutines.Add(StartCoroutine(ApplySingleCharacteristic(
-                    characteristic.ColorSlider, targetValue, colorImage, currentColor)));
+                float targetValue = ch.WhiteSlider.value;
+                activeCoroutines.Add(StartCoroutine(ApplySingleCharacteristic(ch.ColorSlider, targetValue, colorImage, currentColor)));
             }
-            // Если цвет уже белый – ничего не делаем
         }
 
-        // Ждём завершения всех параллельных анимаций
         foreach (var coroutine in activeCoroutines)
             yield return coroutine;
 
-        // Обновляем текущие значения (можно взять из белого слайдера, так как теперь они синхронны)
-        if (characteristicsMap.TryGetValue("Hp", out var hpChar))
-            currentHpValue = (int)hpChar.WhiteSlider.value;
-        if (characteristicsMap.TryGetValue("Damage", out var dmgChar))
-            currentDamageValue = (int)dmgChar.WhiteSlider.value;
+        // Сохраняем подтверждённые значения
+        foreach (var pair in characteristicsMap)
+        {
+            string name = pair.Key;
+            Characteristic ch = pair.Value;
+            int finalValue = (int)ch.WhiteSlider.value;
+            currentCharacteristicValues[name] = finalValue;
+            ch.Value.text = finalValue.ToString();
+        }
 
         lockApplyChanges = false;
+        Debug.Log("Характеристики сохранены: " + string.Join(", ", currentCharacteristicValues));
     }
 
     private IEnumerator ApplySingleCharacteristic(Slider movingSlider, float targetValue, Image colorImage, Color startColor)
     {
         float startSliderValue = movingSlider.value;
         Color targetColor = Color.white;
-        float duration = 0.5f; // можно вынести в параметр или константу
+        float duration = 0.5f;
         float elapsed = 0f;
 
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / duration;
-
             movingSlider.value = Mathf.Lerp(startSliderValue, targetValue, t);
             colorImage.color = Color.Lerp(startColor, targetColor, t);
-
             yield return null;
         }
 
@@ -252,38 +312,81 @@ public class PlayerCharacteristics : MonoBehaviour
         colorImage.color = targetColor;
     }
 
-    public void SetNeedToReset(bool parametr) => needToReset = parametr;
+    public int GetCurrentValue(string characteristicName)
+    {
+        if (currentCharacteristicValues != null && currentCharacteristicValues.ContainsKey(characteristicName))
+            return currentCharacteristicValues[characteristicName];
+
+        Debug.LogWarning($"Характеристика {characteristicName} не найдена");
+        return 0;
+    }
+
+    public int GetBaseValue(string characteristicName)
+    {
+        if (baseCharacteristicValues != null && baseCharacteristicValues.ContainsKey(characteristicName))
+            return baseCharacteristicValues[characteristicName];
+        return 0;
+    }
+
+    public bool HasCharacteristic(string characteristicName)
+    {
+        return characteristicsMap != null && characteristicsMap.ContainsKey(characteristicName);
+    }
+
+    public void SetNeedToReset(bool value) => needToReset = value;
 
     public void SetCelectedModule(ModuleButton targetModule)
     {
-        if (targetModule == null || !targetModule.TryGetComponent<UIModule>(out UIModule targetModuleScript) || celectFrame == null) return;
+        if (targetModule == null || !targetModule.TryGetComponent<UIModule>(out UIModule targetModuleScript) || celectFrame == null)
+            return;
 
         if (!celectFrame.activeInHierarchy)
             celectFrame.SetActive(true);
 
-        if (celectedModule != null)
+        // Возвращаем обычное состояние предыдущему модулю
+        if (celectedModuleIndex != null && celectedModuleIndex.Value < allModulesList.Count)
         {
-            if (celectedModule.HasValue && celectedModule.Value < modules.Count)
-            {
-                modules[celectedModule.Value].TryGetComponent<ModuleButton>(out ModuleButton modulebutton);
-                if (modulebutton != null)
-                    modulebutton.enabled = true;
-            }
+            UIModule prevModule = allModulesList[celectedModuleIndex.Value];
+            if (prevModule != null && prevModule.TryGetComponent<ModuleButton>(out ModuleButton prevButton))
+                prevButton.enabled = true;
         }
 
-        targetModule.enabled = false;
-        celectedModule = modules.IndexOf(targetModuleScript);
+        targetModule.enabled = false;  // блокируем повторное нажатие на этот же модуль
 
-        if (celectedModule == -1)
+        int newIndex = allModulesList.IndexOf(targetModuleScript);
+        if (newIndex == -1)
         {
-            Debug.LogWarning("Модуль не найден в списке modules!");
-            celectedModule = null;
+            Debug.LogWarning("Модуль не найден в общем списке модулей!");
+            celectedModuleIndex = null;
             return;
         }
+        celectedModuleIndex = newIndex;
 
+        // Позиционируем рамку выделения
         RectTransform targetModuleTransform = targetModule.GetComponent<RectTransform>();
         celectFrame.GetComponent<RectTransform>().anchoredPosition = new Vector3(
             targetModuleTransform.anchoredPosition.x,
             targetModuleTransform.anchoredPosition.y - 1);
+
+        // Применяем эффекты нового модуля (предпросмотр)
+        ApplyModuleEffects(targetModuleScript);
+    }
+
+    private void ApplyModuleEffects(UIModule module)
+    {
+        List<UIModule.Values> moduleValues = module.GetValues();
+        foreach (var mv in moduleValues)
+        {
+            string charName = mv.Name;
+            if (characteristicsMap.ContainsKey(charName))
+            {
+                int intValue = Mathf.RoundToInt(mv.AddedValue);
+                SetChanges(charName, intValue);
+            }
+            else
+            {
+                Debug.LogWarning($"Модуль {module.name} пытается изменить характеристику '{charName}', которой нет в characteristicsData!");
+            }
+        }
     }
 }

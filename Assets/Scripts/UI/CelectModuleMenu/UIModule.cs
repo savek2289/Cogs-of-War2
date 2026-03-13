@@ -1,23 +1,80 @@
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 public class UIModule : MonoBehaviour
 {
     [SerializeField] PlayerCharacteristics characteristics;
 
-    [SerializeField] private int addingHp;
-    [SerializeField] private int addingDamage;
+    [SerializeField] private List<Values> values;
 
-    public int AddingHp => addingHp;
-    public int AddingDamage => addingDamage;
-
-    public Dictionary<string, object> GetValues()
+    [System.Serializable]
+    public class Values
     {
-        Dictionary<string, object> values = new();
-        values.Add("Hp", addingHp);
-        values.Add("Damage", addingDamage);
+        [SerializeField] private string name;
+        [Space(10)]
+        [SerializeField] private float addedValue;
 
-        return values;
+        public string Name => name;
+        public float AddedValue => addedValue;
+    }
+
+    public List<Values> GetValues() => values;
+
+    public float GetValueForCharacteristic(string characteristicName)
+    {
+        foreach (var value in values)
+        {
+            if (value.Name == characteristicName)
+                return value.AddedValue;
+        }
+        return 0f;
+    }
+
+    public bool AffectsCharacteristic(string characteristicName)
+    {
+        foreach (var value in values)
+        {
+            if (value.Name == characteristicName)
+                return true;
+        }
+        return false;
+    }
+
+    public void ApplyModuleEffects()
+    {
+        if (characteristics == null)
+        {
+            Debug.LogError("PlayerCharacteristics не назначен в UIModule!");
+            return;
+        }
+
+        foreach (var value in values)
+        {
+            int intValue = Mathf.RoundToInt(value.AddedValue);
+            characteristics.SetChanges(value.Name, intValue);
+        }
+    }
+
+    public void RevertModuleEffects()
+    {
+        if (characteristics == null)
+        {
+            Debug.LogError("PlayerCharacteristics не назначен в UIModule!");
+            return;
+        }
+
+        foreach (var value in values)
+        {
+            int intValue = Mathf.RoundToInt(value.AddedValue);
+            characteristics.SetChanges(value.Name, -intValue);
+        }
+    }
+
+    private void Start()
+    {
+        if (characteristics == null)
+            characteristics = PlayerCharacteristics.Instance;
     }
 }
