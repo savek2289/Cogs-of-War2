@@ -1,64 +1,103 @@
 using System.Collections;
+using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.AI;
 
 [RequireComponent(typeof(NavMeshAgent))]
-public class SC_EnemyAI : MonoBehaviour
+public class AdvancedEnemyAI : MonoBehaviour
 {
+    [System.Serializable]
+    
+    public enum EnemyType
+    {
+        Melee,
+        Ranged
+    }
+
+    public enum EnemyState
+    {
+        Patrol,
+        Chase,
+        Attack,
+        Search,
+        Investigate
+    }
+
+    [Header("Type")]
+    [SerializeField] private EnemyType enemyType;
+    [SerializeField] private EnemyState currentState;
 
     [Header("References")]
     [SerializeField] private Transform player;
 
     [Header("Vision")]
-    [SerializeField] private float viewDistance = 15f;
+    [SerializeField] private float viewDistance = 18f;
     [SerializeField] private float viewAngle = 120f;
     [SerializeField] private float closeDetectDistance = 2.5f;
     [SerializeField] private LayerMask visionMask;
 
     [Header("Movement")]
-    [SerializeField] private float patrolRadius = 12f;
+    [SerializeField] private float patrolRadius = 15f;
     [SerializeField] private float walkSpeed = 2f;
-    [SerializeField] private float runSpeed = 4f;
+    [SerializeField] private float runSpeed = 4.5f;
+    [SerializeField] private float baseOffset = 0;
+
+    [Header("Attack References")]
+    [SerializeField] private Transform firePoint;
+    [SerializeField] private GameObject projectilePrefab;
+    [SerializeField] private float projectileSpeed = 20f;
+    [SerializeField] private float projectileLifeTime = 5f;
+    [SerializeField] private float fireColldown = 0.4f;
+
+    [Header("Melee Attack")]
+    [SerializeField] private LayerMask meleeTargetLayer;
+    [SerializeField] private float meleeRange = 1.8f;      
+   
 
     [Header("Attack")]
-    [SerializeField] private float attackDistance = 1.8f;
+    [SerializeField] private float attackDistance = 2f;
+    [SerializeField] private float minRangedDistance = 5f;
     [SerializeField] private float attackCooldown = 1.2f;
-    [SerializeField] private Transform hitPoint;
-    [SerializeField] private LayerMask targetLayer;
 
     [Header("Search")]
-    [SerializeField] private float searchTime = 4f;
+    [SerializeField] private float searchTime = 5f;
+    [SerializeField] private float patrolWaitTime = 2f;
 
-    private bool canAttack = true;
-    private bool getAttack = false;
-    private bool hasSeenPlayer;
+    [Header("Memory")]
+    [SerializeField] private float losePlayerTime = 3f;
+
+    [Header("Team AI")]
+    [SerializeField] private float alertRadius = 12f;
+
      
+    private NavMeshAgent agent;
+    private Animator anim;
+
+
+    private float patrolTimer = 0f;       
+    
     private Vector3 patrolPoint;
     private Vector3 lastPlayerPosition;
 
     private float searchTimer;
-
-    private Animator anim;
-    private NavMeshAgent agent;
+    private float loseTimer;
+    private float patrolWaitTimer;
     
-    private enum EnemyState
-    {
-        Patrol,
-        Chase,
-        Attack,
-        Search
-    }
+ 
+    private bool canAttack = true;
 
-    [SerializeField] private EnemyState currentState;
-
-    private void Start()
+    void Start()
     {
-        player = GameObject.Find("TPS").transform;
+        player = GameObject.FindGameObjectWithTag("Player").transform;
+
         agent = GetComponent<NavMeshAgent>();
         anim = GetComponentInChildren<Animator>();
 
-        agent.stoppingDistance = attackDistance;
-        agent.autoBraking = true;
+        agent.baseOffset = baseOffset;
+        agent.acceleration = 25f;
+        agent.angularSpeed = 720f;
+        
         agent.updateRotation = false;
 
         SetNewPatrolPoint();
@@ -66,48 +105,51 @@ public class SC_EnemyAI : MonoBehaviour
         currentState = EnemyState.Patrol;
     }
 
-    private void Update()
+    void Update()
     {
-        HandleVision();
+        VisionCheck();
         HandleState();
         HandleRotation();
-        GetAttack();
+         
     }
 
-    // ==============================
+    //=====================
     // STATE MACHINE
-    // ==============================
+    //=====================
 
-    private void HandleState()
+    void HandleState()
     {
         switch (currentState)
         {
             case EnemyState.Patrol:
-                HandlePatrol();
+                Patrol();
                 break;
 
             case EnemyState.Chase:
-                HandleChase();
+                Chase();
                 break;
 
             case EnemyState.Search:
-                HandleSearch();
+                Search();
                 break;
-        }
-        if (currentState == EnemyState.Attack)
-        {
-            HandleAttack();
+
+            case EnemyState.Attack:
+                Attack();
+                break;
+
+            case EnemyState.Investigate:
+                Investigate();
+                break;
         }
     }
 
-    // ==============================
+    //=====================
     // VISION
-    // ==============================
+    //=====================
 
-    private void HandleVision()
+    void VisionCheck()
     {
         Vector3 dir = (player.position - transform.position).normalized;
-
         float distance = Vector3.Distance(transform.position, player.position);
 
         RaycastHit hit;
@@ -122,70 +164,119 @@ public class SC_EnemyAI : MonoBehaviour
 
         if (distance < closeDetectDistance || angle < viewAngle * 0.5f)
         {
-             
             lastPlayerPosition = player.position;
-            currentState = EnemyState.Chase;
+            loseTimer = losePlayerTime;
+
+            if (currentState != EnemyState.Attack)
+                currentState = EnemyState.Chase;
+
+            AlertNearbyEnemies();
         }
     }
 
-    // ==============================
+    //=====================
     // PATROL
-    // ==============================
+    //=====================
 
-    private void HandlePatrol()
+    void Patrol()
     {
         agent.speed = walkSpeed;
-
-        agent.SetDestination(patrolPoint);
-
-        anim.SetFloat("Speed", 1f);
+        anim.SetFloat("Speed", 1f);  // анимация ходьбы
         anim.SetBool("IsRunning", true);
 
-        
-        if (agent.remainingDistance < 1.7f)
-            SetNewPatrolPoint();
+        // если агент ещё не достиг точки, двигаемся к ней
+        if (Vector3.Distance(agent.destination, patrolPoint) > 0.1f)
+            agent.SetDestination(patrolPoint);
+
+        // проверяем, достиг ли агент точки
+        if (HasReachedDestination())
+        {
+            anim.SetBool("IsRunning",false);
+            patrolTimer += Time.deltaTime;
+
+            if (patrolTimer >= patrolWaitTime)
+            {
+                SetNewPatrolPoint();
+                patrolTimer = 0;
+            }
+        }
     }
 
-    // ==============================
+    //=====================
     // CHASE
-    // ==============================
+    //=====================
 
-    private void HandleChase()
+    void Chase()
     {
-        if (player == null) return;
-
-        agent.isStopped = false;
         agent.speed = runSpeed;
-        agent.SetDestination(player.position);
+        agent.isStopped = false;
 
-        // если достиг дистанции атаки
-        if (agent.remainingDistance <= agent.stoppingDistance)
-        {
-            currentState = EnemyState.Attack;
-            return;
-        }
+        if (Vector3.Distance(agent.destination, player.position) > 1f)
+            agent.SetDestination(player.position);
+
         anim.SetFloat("Speed", 1.5f);
         anim.SetBool("IsRunning", true);
-        // если игрок потерян
-        if (!CanSeePlayer())
+
+        float distance = Vector3.Distance(transform.position, player.position);
+
+        if (enemyType == EnemyType.Melee)
         {
+            if (distance <= attackDistance)
+            {
+                currentState = EnemyState.Attack;
+                anim.SetBool("IsRunning", false);
+                return;
+            }
+        }
+        else
+        {
+            if (distance <= attackDistance )
+            {
+                currentState = EnemyState.Attack;
+                anim.SetBool("IsRunning", false);
+                return;
+            }
+        }
+
+        if (CanSeePlayer())
+        {
+            loseTimer = losePlayerTime;
             lastPlayerPosition = player.position;
-            currentState = EnemyState.Search;
-            searchTimer = searchTime;
-            agent.SetDestination(lastPlayerPosition);
+        }
+        else
+        {
+            loseTimer -= Time.deltaTime;
+
+            if (loseTimer <= 0)
+            {
+                currentState = EnemyState.Search;
+                searchTimer = searchTime;
+                agent.SetDestination(lastPlayerPosition);
+            }
         }
     }
 
-    // ==============================
+    //=====================
     // SEARCH
-    // ==============================
+    //=====================
 
-    private void HandleSearch()
+    void Search()
     {
+        agent.speed = runSpeed;
+        anim.SetFloat("Speed", 1.5f);  // анимация бега
+        anim.SetBool("IsRunning", true);
+
+        // идем к последней известной позиции игрока
+        if (Vector3.Distance(agent.destination, lastPlayerPosition) > 0.1f)
+            agent.SetDestination(lastPlayerPosition);
+
+        // уменьшаем таймер поиска
         searchTimer -= Time.deltaTime;
-        anim.SetBool("IsRunning", false);
-        if (agent.remainingDistance < 1.7f)
+
+        // если достигли позиции
+        if (HasReachedDestination())
         {
+            // если таймер истек, возвращаемся к патрулю
             if (searchTimer <= 0)
             {
                 currentState = EnemyState.Patrol;
@@ -193,95 +284,149 @@ public class SC_EnemyAI : MonoBehaviour
             }
         }
     }
-
-    // ==============================
-    // ATTACK
-    // ==============================
-
-    private void HandleAttack()
+    bool HasReachedDestination()
     {
-         
-        if (player == null) return;
-        
-        // остановка
-        agent.isStopped = true;
-
-        // поворот к игроку
-        Vector3 dir = player.position - transform.position;
-        dir.y = 0;
-        if (dir.magnitude > 0.01f)
+        if (!agent.pathPending)
         {
-            Quaternion targetRot = Quaternion.LookRotation(dir);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, 8f * Time.deltaTime);
+            if (agent.remainingDistance <= agent.stoppingDistance + 0.1f)
+            {
+                if (!agent.hasPath || agent.velocity.sqrMagnitude == 0f)
+                    return true;
+            }
         }
+        return false;
+    }
+    //=====================
+    // INVESTIGATE
+    //=====================
 
-        // запуск атаки один раз
-        if (canAttack)
-            StartCoroutine(AttackRoutine());
+    void Investigate()
+    {
+        agent.SetDestination(lastPlayerPosition);
+
+        if (agent.remainingDistance < 1.5f)
+        {
+            currentState = EnemyState.Search;
+        }
     }
 
-    private IEnumerator AttackRoutine()
+    //=====================
+    // ATTACK
+    //=====================
+
+    void Attack()
+    {
+        float distance = Vector3.Distance(transform.position, player.position);
+
+        // проверка выхода из атаки (для дальника и ближнего)
+        if ((enemyType == EnemyType.Ranged && (distance > attackDistance || !CanSeePlayer())) ||
+            (enemyType == EnemyType.Melee && distance > attackDistance))
+        {
+            StopAllCoroutines();
+            canAttack = true;
+            agent.isStopped = false;
+            currentState = EnemyState.Chase;
+            return;
+        }
+
+        // остановка агента и поворот к игроку
+        agent.isStopped = true;
+        
+        Vector3 dir = player.position - transform.position;
+        dir.y = 0;
+        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), 10f * Time.deltaTime);
+
+        // запуск атаки
+        if (canAttack)
+        {
+            if (enemyType == EnemyType.Ranged)
+                StartCoroutine(AttackRoutine());
+            else
+                StartCoroutine(AttackRoutine());
+        }
+    }
+    
+
+    IEnumerator AttackRoutine()
     {
         canAttack = false;
 
-        // небольшая пауза перед ударом
-        yield return new WaitForSeconds(0.35f);
-        getAttack = true;
+        if (enemyType == EnemyType.Melee)
+        {
+            // Анимация атаки
+            anim.Play("Attack");
 
-        anim.SetBool("IsRunning", false); 
-        anim.Play("Attack");
- 
-        yield return new WaitForSeconds(attackCooldown);        
-        getAttack = false;
+            // ждем небольшой тайминг удара
+            yield return new WaitForSeconds(0.3f);
+            HitEnemy bullet = GetComponentInChildren<HitEnemy>();
+            bullet.col.enabled = true;
+            // Ждем остаток cooldown
+            yield return new WaitForSeconds(attackCooldown - 0.3f);
+            bullet.col.enabled = false;
+        }
+        else // Ranged
+        {
+            anim.Play("Attack");
+
+            // небольшая пауза перед выстрелом для анимации
+            yield return new WaitForSeconds(fireColldown);
+
+            if (firePoint != null && projectilePrefab != null)
+            {
+                GameObject proj = Instantiate(projectilePrefab, firePoint.position, Quaternion.identity);
+                
+                // направление на игрока
+                Vector3 dir = (player.position + Vector3.up * 1f - firePoint.position).normalized;
+
+                if (proj.TryGetComponent<Rigidbody>(out Rigidbody rb))
+                {
+                    rb.velocity = dir * projectileSpeed;
+                }
+                 
+            }
+
+            // Ждем остаток cooldown
+            yield return new WaitForSeconds(attackCooldown - fireColldown);
+        }
+
         canAttack = true;
 
-        // после атаки проверяем игрока
+        // Проверяем дистанцию, чтобы вернуться к Chase
         float distance = Vector3.Distance(transform.position, player.position);
-        if (distance > attackDistance + 0.2f)
+        if (distance > attackDistance + 0.5f)
             currentState = EnemyState.Chase;
     }
 
-    private void GetAttack()
+    //=====================
+    // TEAM AI
+    //=====================
+
+    void AlertNearbyEnemies()
     {
-        if (getAttack == true) 
+        Collider[] enemies = Physics.OverlapSphere(transform.position, alertRadius);
+
+        foreach (Collider col in enemies)
         {
-           
-            Ray ray = new Ray(hitPoint.position, hitPoint.forward);
-            RaycastHit hit;
+            AdvancedEnemyAI ai = col.GetComponent<AdvancedEnemyAI>();
 
-            if (Physics.Raycast(ray, out hit, 0.3f, targetLayer))
+            if (ai != null && ai != this)
             {
-                hit.collider.gameObject.SetActive(false);
-                getAttack = false;
-                return;
+                ai.ReceiveAlert(player.position);
             }
-
-            
-            Debug.DrawRay(hitPoint.position, hitPoint.forward * 0.3f, Color.green);
         }
-
     }
-    // ==============================
-    // ROTATION
-    // ==============================
 
-    private void HandleRotation()
+    public void ReceiveAlert(Vector3 playerPos)
     {
-        if (currentState == EnemyState.Attack)
-            return; // поворот делаем в HandleAttack
-
-        Vector3 direction = agent.velocity;
-        if (direction.magnitude < 0.1f) return;
-
-        Quaternion targetRot = Quaternion.LookRotation(direction);
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, 10f * Time.deltaTime);
+        lastPlayerPosition = playerPos;
+        currentState = EnemyState.Investigate;
     }
 
-    // ==============================
+    //=====================
     // UTIL
-    // ==============================
+    //=====================
 
-    private bool CanSeePlayer()
+    bool CanSeePlayer()
     {
         Vector3 dir = (player.position - transform.position).normalized;
 
@@ -296,30 +441,79 @@ public class SC_EnemyAI : MonoBehaviour
         return false;
     }
 
-    private void SetNewPatrolPoint()
+    void HandleRotation()
     {
-        Vector3 randomPoint = Random.insideUnitSphere * patrolRadius;
+        if (currentState == EnemyState.Attack)
+            return;
 
-        randomPoint += transform.position;
+        Vector3 dir = agent.velocity;
 
-        NavMeshHit hit;
+        if (dir.magnitude < 0.1f) return;
 
-        if (NavMesh.SamplePosition(randomPoint, out hit, patrolRadius, NavMesh.AllAreas))
-        {
-            patrolPoint = hit.position;
-        }
+        Quaternion rot = Quaternion.LookRotation(dir);
+        transform.rotation = Quaternion.Slerp(transform.rotation, rot, 10 * Time.deltaTime);
     }
 
-    // ==============================
-    // DEBUG
-    // ==============================
-
-    private void OnDrawGizmosSelected()
+    private void SetNewPatrolPoint()
     {
+        const int maxAttempts = 20; // максимум попыток найти точку
+        for (int i = 0; i < maxAttempts; i++)
+        {
+            // случайная точка в радиусе
+            Vector3 randomPoint = Random.insideUnitSphere * patrolRadius + transform.position;
+
+            NavMeshHit hit;
+            // проверяем, что точка на NavMesh
+            if (NavMesh.SamplePosition(randomPoint, out hit, 2f, NavMesh.AllAreas))
+            {
+                Vector3 candidatePoint = hit.position;
+
+                // проверяем, что агент реально сможет пройти
+                NavMeshPath path = new NavMeshPath();
+                if (agent.CalculatePath(candidatePoint, path) && path.status == NavMeshPathStatus.PathComplete)
+                {
+                    patrolPoint = candidatePoint;
+                    return; // нашли корректную точку
+                }
+            }
+        }
+
+        // если не нашли подходящую точку
+        patrolPoint = transform.position;
+        Debug.LogWarning("Не удалось найти доступную точку патруля на NavMesh!");
+    }
+    void OnDrawGizmosSelected()
+    {
+        // дистанция зрения
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, viewDistance);
 
+        // близкое обнаружение
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, closeDetectDistance);
+
+        // радиус помощи союзников
+        Gizmos.color = Color.blue;
+        Gizmos.DrawWireSphere(transform.position, alertRadius);
+
+        // дистанция атаки
+        Gizmos.color = Color.magenta;
+        Gizmos.DrawWireSphere(transform.position, attackDistance);
+
+        // угол зрения
+        Vector3 left = Quaternion.Euler(0, -viewAngle * 0.5f, 0) * transform.forward;
+        Vector3 right = Quaternion.Euler(0, viewAngle * 0.5f, 0) * transform.forward;
+
+        Gizmos.color = Color.green;
+        Gizmos.DrawRay(transform.position + Vector3.up, left * viewDistance);
+        Gizmos.DrawRay(transform.position + Vector3.up, right * viewDistance);
+
+        // направление взгляда
+        Gizmos.color = Color.white;
+        Gizmos.DrawRay(transform.position + Vector3.up, transform.forward * viewDistance);
+
+        // точка патруля
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawSphere(patrolPoint, 0.4f);
     }
 }

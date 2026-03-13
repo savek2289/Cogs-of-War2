@@ -10,7 +10,7 @@ public class SC_TPSController : MonoBehaviour
     [SerializeField] private float jumpForce = 8f;
     [SerializeField] private float gravity = 20f;
     [SerializeField] private float airControlPercent = 0.5f;
-     
+    
     [Header("Rotation")]
     [SerializeField] private float rotationSmoothTime = 0.1f;
 
@@ -26,7 +26,8 @@ public class SC_TPSController : MonoBehaviour
     [SerializeField] private float verticalLookLimit = 60f;
 
     private bool canAttack = true;
-    private ModelParent modelParent;
+     
+    private Animator anim;
     private CharacterController controller;
     private Vector3 velocity;
     private float verticalVelocity;
@@ -39,7 +40,7 @@ public class SC_TPSController : MonoBehaviour
     private void Start()
     {
         controller = GetComponent<CharacterController>();
-        modelParent = GetComponentInChildren<ModelParent>();
+        anim = GetComponent<Animator>();
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -95,18 +96,15 @@ public class SC_TPSController : MonoBehaviour
 
         if (inputDirection.magnitude > 0)
         {
-            for (int i = 0; i < modelParent.childModel.Count; i++)
-                if (modelParent.childModel[i].name == "LegsR" || modelParent.childModel[i].name == "LegsL")
-                {
-                    modelParent.childModel[i].GetComponentInChildren<Animator>().Play("Run");
-                    modelParent.childModel[i].GetComponentInChildren<Animator>().SetFloat("Speed", isRunning ? 1.2f : 0.8f);
-                }
+            anim.SetBool("IsRunning", true);
+            anim.SetFloat("Speed", isRunning ? 1f : 0.8f);
+        
+                
         }
         else
         {
-            for (int i = 0; i < modelParent.childModel.Count; i++)
-                if (modelParent.childModel[i].name == "LegsR" || modelParent.childModel[i].name == "LegsL")
-                    modelParent.childModel[i].GetComponentInChildren<Animator>().Play("Idle");
+            anim.SetBool("IsRunning", false);
+ 
         }
 
         float targetSpeed = isRunning ? runSpeed : walkSpeed;
@@ -141,11 +139,10 @@ public class SC_TPSController : MonoBehaviour
         }
         else
         {
+            transform.rotation = Quaternion.Euler(0f, currentYRotation, 0f);
             if (inputDirection.magnitude >= 0.1f)
             {
                 float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + currentYRotation;
-
-                transform.rotation = Quaternion.Euler(0f, currentYRotation, 0f);
 
                 Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
 
@@ -192,18 +189,6 @@ public class SC_TPSController : MonoBehaviour
             Debug.DrawRay(hitPoint.position, hitPoint.forward * 0.3f, Color.green);
         }
     }
-    private Animator GetHandAnimator(string handName)
-    {
-        for (int i = 0; i < modelParent.childModel.Count; i++)
-        {
-            if (modelParent.childModel[i].name == handName)
-            {
-                return modelParent.childModel[i]
-                    .GetComponentInChildren<Animator>();
-            }
-        }
-        return null;
-    }
     //private IEnumerator RotateToCamera()
     //{
     //    isAttack = true;
@@ -230,29 +215,14 @@ public class SC_TPSController : MonoBehaviour
 
         int j = Random.Range(0, 2);
 
-        Animator targetAnimator = null;
-
         if (j == 0)
         {
-            targetAnimator = GetHandAnimator("HandL");
-            if (targetAnimator != null)
-                targetAnimator.Play("Attack1");
+            anim.Play("Attacke1");
         }
         else
         {
-            string randomHandR = "HandR";
-            targetAnimator = GetHandAnimator(randomHandR);
-
-            if (targetAnimator != null)
-                targetAnimator.Play("Attack2");
-            string randomHandL = "HandL";
-            targetAnimator = GetHandAnimator(randomHandL);
-
-            if (targetAnimator != null)
-                targetAnimator.Play("Attack2");
+            anim.Play("Attacke2");
         }
-        //StartCoroutine(RotateToCamera());
-        // Задержка перед нанесением урона
         yield return new WaitForSeconds(attackDelay);
 
         getAttack = true;
