@@ -1486,6 +1486,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values: []
+  cancelCategory: 0
 --- !u!222 &85167432
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -2668,6 +2669,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values: []
+  cancelCategory: 0
 --- !u!222 &229264328
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -3523,6 +3525,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values: []
+  cancelCategory: 0
 --- !u!222 &310871626
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -3667,15 +3670,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
-  values:
-  - name: Hp
-    addedValue: 0
-  - name: Damage
-    addedValue: 0
-  - name: Defence
-    addedValue: 0
-  - name: Speed
-    addedValue: 0
+  values: []
+  cancelCategory: 1
 --- !u!1 &320242793
 GameObject:
   m_ObjectHideFlags: 0
@@ -4006,15 +4002,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
-  values:
-  - name: Hp
-    addedValue: 0
-  - name: Damage
-    addedValue: 0
-  - name: Defence
-    addedValue: 0
-  - name: Speed
-    addedValue: 0
+  values: []
+  cancelCategory: 1
 --- !u!1 &365221451
 GameObject:
   m_ObjectHideFlags: 0
@@ -4144,6 +4133,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values: []
+  cancelCategory: 0
 --- !u!222 &365221456
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -4329,6 +4319,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values: []
+  cancelCategory: 0
 --- !u!222 &385795215
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -4751,7 +4742,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &489245650
 RectTransform:
   m_ObjectHideFlags: 0
@@ -6042,12 +6033,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values:
-  - name: Hp
-    addedValue: 40
   - name: Defence
-    addedValue: -8
-  - name: Damage
+    addedValue: 10
+  - name: Hp
+    addedValue: -12
+  - name: Speed
     addedValue: -3
+  cancelCategory: 0
 --- !u!222 &632382683
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -7273,6 +7265,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values: []
+  cancelCategory: 0
 --- !u!222 &742172488
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -7646,7 +7639,7 @@ RectTransform:
   m_Father: {fileID: 489245650}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -6, y: -6}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -7892,6 +7885,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values: []
+  cancelCategory: 0
 --- !u!222 &793141420
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -9293,7 +9287,7 @@ RectTransform:
   m_Father: {fileID: 1511940488}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -6, y: -6}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -11051,7 +11045,7 @@ MonoBehaviour:
     colorSlider: {fileID: 2016841325}
     value: {fileID: 875584925}
   - name: Defence
-    baseValue: 0
+    baseValue: 5
     whiteSlider: {fileID: 67880023}
     colorSlider: {fileID: 1998510542}
     value: {fileID: 711156046}
@@ -11286,7 +11280,10 @@ MonoBehaviour:
   characteristics: {fileID: 1000243810}
   values:
   - name: Defence
-    addedValue: 2
+    addedValue: 4
+  - name: Damage
+    addedValue: -1
+  cancelCategory: 0
 --- !u!222 &1038797126
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -11945,12 +11942,13 @@ MonoBehaviour:
   values:
   - name: Hp
     addedValue: 0
-  - name: Damage
+  - name: Speed
     addedValue: 0
   - name: Defence
     addedValue: 0
-  - name: Speed
+  - name: Damage
     addedValue: 0
+  cancelCategory: 1
 --- !u!1 &1081145522
 GameObject:
   m_ObjectHideFlags: 0
@@ -12155,6 +12153,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values: []
+  cancelCategory: 0
 --- !u!222 &1091283097
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -12583,15 +12582,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
-  values:
-  - name: Hp
-    addedValue: 0
-  - name: Damage
-    addedValue: 0
-  - name: Defence
-    addedValue: 0
-  - name: Speed
-    addedValue: 0
+  values: []
+  cancelCategory: 1
 --- !u!1 &1133513280
 GameObject:
   m_ObjectHideFlags: 0
@@ -12937,15 +12929,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
-  values:
-  - name: Hp
-    addedValue: 0
-  - name: Damage
-    addedValue: 0
-  - name: Defence
-    addedValue: 0
-  - name: Speed
-    addedValue: 0
+  values: []
+  cancelCategory: 1
 --- !u!1 &1162667455
 GameObject:
   m_ObjectHideFlags: 0
@@ -13113,7 +13098,7 @@ RectTransform:
   m_Father: {fileID: 1998510540}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -6, y: -6}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -14789,15 +14774,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
-  values:
-  - name: Hp
-    addedValue: 0
-  - name: Damage
-    addedValue: 0
-  - name: Defence
-    addedValue: 0
-  - name: Speed
-    addedValue: 0
+  values: []
+  cancelCategory: 1
 --- !u!1 &1316618720
 GameObject:
   m_ObjectHideFlags: 0
@@ -15428,6 +15406,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values: []
+  cancelCategory: 0
 --- !u!222 &1368343946
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -15971,6 +15950,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values: []
+  cancelCategory: 0
 --- !u!222 &1450492056
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -16108,6 +16088,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values: []
+  cancelCategory: 0
 --- !u!222 &1461487650
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -16443,6 +16424,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values: []
+  cancelCategory: 0
 --- !u!222 &1511417934
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -16468,7 +16450,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1511940488
 RectTransform:
   m_ObjectHideFlags: 0
@@ -17989,9 +17971,12 @@ MonoBehaviour:
   characteristics: {fileID: 1000243810}
   values:
   - name: Hp
-    addedValue: -5
+    addedValue: -3
+  - name: Speed
+    addedValue: 10
   - name: Defence
-    addedValue: 15
+    addedValue: -1
+  cancelCategory: 0
 --- !u!114 &1628238527
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -18376,6 +18361,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values: []
+  cancelCategory: 0
 --- !u!222 &1705267850
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -21665,15 +21651,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
-  values:
-  - name: Hp
-    addedValue: 0
-  - name: Damage
-    addedValue: 0
-  - name: Defence
-    addedValue: 0
-  - name: Speed
-    addedValue: 0
+  values: []
+  cancelCategory: 1
 --- !u!1 &1952771775
 GameObject:
   m_ObjectHideFlags: 0
@@ -22601,6 +22580,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
   values: []
+  cancelCategory: 0
 --- !u!222 &1990444827
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -22717,7 +22697,7 @@ RectTransform:
   m_Father: {fileID: 2016841324}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -6, y: -6}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -22776,7 +22756,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1998510540
 RectTransform:
   m_ObjectHideFlags: 0
@@ -22873,7 +22853,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &2016841324
 RectTransform:
   m_ObjectHideFlags: 0
@@ -23123,12 +23103,13 @@ MonoBehaviour:
   values:
   - name: Hp
     addedValue: 0
-  - name: Damage
+  - name: Speed
     addedValue: 0
   - name: Defence
     addedValue: 0
-  - name: Speed
+  - name: Damage
     addedValue: 0
+  cancelCategory: 1
 --- !u!114 &2039411745
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -23357,15 +23338,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   characteristics: {fileID: 1000243810}
-  values:
-  - name: Hp
-    addedValue: 0
-  - name: Damage
-    addedValue: 0
-  - name: Defence
-    addedValue: 0
-  - name: Speed
-    addedValue: 0
+  values: []
+  cancelCategory: 1
 --- !u!1 &2049126867
 GameObject:
   m_ObjectHideFlags: 0
@@ -23766,11 +23740,10 @@ MonoBehaviour:
   characteristics: {fileID: 1000243810}
   values:
   - name: Hp
-    addedValue: 5
-  - name: Defence
     addedValue: 10
-  - name: Speed
-    addedValue: -17.5
+  - name: Defence
+    addedValue: -2
+  cancelCategory: 0
 --- !u!114 &2086257524
 MonoBehaviour:
   m_ObjectHideFlags: 0

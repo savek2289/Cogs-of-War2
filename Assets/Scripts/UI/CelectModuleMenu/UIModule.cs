@@ -8,6 +8,7 @@ public class UIModule : MonoBehaviour
     [SerializeField] PlayerCharacteristics characteristics;
 
     [SerializeField] private List<Values> values;
+    [SerializeField] private bool cancelCategory; // true = модуль отменяет выбор в своей категории
 
     [System.Serializable]
     public class Values
@@ -19,6 +20,8 @@ public class UIModule : MonoBehaviour
         public string Name => name;
         public float AddedValue => addedValue;
     }
+
+    public bool CancelCategory => cancelCategory;
 
     public List<Values> GetValues() => values;
 
