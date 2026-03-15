@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.UI;
 
 [RequireComponent(typeof(NavMeshAgent))]
-public class AdvancedEnemyAI : MonoBehaviour
+public class SC_EnemyAI : MonoBehaviour
 {
     [System.Serializable]
     
@@ -23,10 +24,17 @@ public class AdvancedEnemyAI : MonoBehaviour
         Search,
         Investigate
     }
-
+     
     [Header("Type")]
     [SerializeField] private EnemyType enemyType;
     [SerializeField] private EnemyState currentState;
+
+    [Space(30)]
+
+    [Header("TakeDamage")]
+    [SerializeField] private float hp = 20;
+    [SerializeField] private Image hpBar;
+    [SerializeField] private Image hpBackBar;
 
     [Header("References")]
     [SerializeField] private Transform player;
@@ -38,27 +46,21 @@ public class AdvancedEnemyAI : MonoBehaviour
     [SerializeField] private LayerMask visionMask;
 
     [Header("Movement")]
-    [SerializeField] private float patrolRadius = 15f;
     [SerializeField] private float walkSpeed = 2f;
     [SerializeField] private float runSpeed = 4.5f;
+    [SerializeField] private float patrolRadius = 15f; 
     [SerializeField] private float baseOffset = 0;
 
     [Header("Attack References")]
     [SerializeField] private Transform firePoint;
     [SerializeField] private GameObject projectilePrefab;
     [SerializeField] private float projectileSpeed = 20f;
-    [SerializeField] private float projectileLifeTime = 5f;
-    [SerializeField] private float fireColldown = 0.4f;
-
-    [Header("Melee Attack")]
-    [SerializeField] private LayerMask meleeTargetLayer;
-    [SerializeField] private float meleeRange = 1.8f;      
-   
+    [SerializeField] private float fireColldown = 0.4f; 
 
     [Header("Attack")]
     [SerializeField] private float attackDistance = 2f;
-    [SerializeField] private float minRangedDistance = 5f;
     [SerializeField] private float attackCooldown = 1.2f;
+    [SerializeField] private float demage = 2;
 
     [Header("Search")]
     [SerializeField] private float searchTime = 5f;
@@ -83,12 +85,20 @@ public class AdvancedEnemyAI : MonoBehaviour
     private float searchTimer;
     private float loseTimer;
     private float patrolWaitTimer;
-    
- 
+
+    private float smoothTime = 0.3f;
+    private float delay = 0.25f;
+    private float maxHp;
+    private Coroutine hpCoroutine;
+
     private bool canAttack = true;
 
     void Start()
     {
+        maxHp = hp;
+        hpBar.fillAmount = 1f;
+        hpBackBar.fillAmount = 1f;
+
         player = GameObject.FindGameObjectWithTag("Player").transform;
 
         agent = GetComponent<NavMeshAgent>();
@@ -358,7 +368,7 @@ public class AdvancedEnemyAI : MonoBehaviour
 
             // ждем небольшой тайминг удара
             yield return new WaitForSeconds(0.3f);
-            HitEnemy bullet = GetComponentInChildren<HitEnemy>();
+            SC_HitEnemy bullet = GetComponentInChildren<SC_HitEnemy>();
             bullet.col.enabled = true;
             // Ждем остаток cooldown
             yield return new WaitForSeconds(attackCooldown - 0.3f);
@@ -374,15 +384,16 @@ public class AdvancedEnemyAI : MonoBehaviour
             if (firePoint != null && projectilePrefab != null)
             {
                 GameObject proj = Instantiate(projectilePrefab, firePoint.position, Quaternion.identity);
-                
-                // направление на игрока
+
                 Vector3 dir = (player.position + Vector3.up * 1f - firePoint.position).normalized;
 
                 if (proj.TryGetComponent<Rigidbody>(out Rigidbody rb))
                 {
                     rb.velocity = dir * projectileSpeed;
                 }
+
                  
+
             }
 
             // Ждем остаток cooldown
@@ -396,6 +407,55 @@ public class AdvancedEnemyAI : MonoBehaviour
         if (distance > attackDistance + 0.5f)
             currentState = EnemyState.Chase;
     }
+    //====================
+    // Take Damege
+    //====================
+
+    public void TakeDamage(float damage)
+    {
+        if (hp - damage <= 0)
+        {
+            hp = 0;
+        }
+        else
+        {
+            hp -= damage;
+        }
+
+        float targetFill = hp / maxHp;
+
+        // передняя полоска падает сразу
+        hpBar.fillAmount = targetFill;
+
+       
+
+        hpCoroutine = StartCoroutine(SmoothBackBar(targetFill));
+
+        if (hp <= 0)
+        {
+            Destroy(gameObject);
+            SC_Spawner.enemies.Remove(gameObject);
+        }
+    }
+
+ 
+
+    IEnumerator SmoothBackBar(float target)
+    {
+        yield return new WaitForSeconds(delay);
+
+        float start = hpBackBar.fillAmount;
+        float time = 0f;
+
+        while (time < smoothTime)
+        {
+            time += Time.deltaTime;
+            hpBackBar.fillAmount = Mathf.Lerp(start, target, time / smoothTime);
+            yield return null;
+        }
+
+        hpBackBar.fillAmount = target;
+    }
 
     //=====================
     // TEAM AI
@@ -407,7 +467,7 @@ public class AdvancedEnemyAI : MonoBehaviour
 
         foreach (Collider col in enemies)
         {
-            AdvancedEnemyAI ai = col.GetComponent<AdvancedEnemyAI>();
+            SC_EnemyAI ai = col.GetComponent<SC_EnemyAI>();
 
             if (ai != null && ai != this)
             {
