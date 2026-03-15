@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
-using System.Collections.Generic;
+using System.Collections;
 
 public class ModuleButton : Button
 {
@@ -21,6 +21,12 @@ public class ModuleButton : Button
 
     private bool firstPressReceived = false;
     private PlayerCharacteristics characteristics;
+
+    protected override void Awake()
+    {
+        base.Awake();
+        characteristics = PlayerCharacteristics.Instance;
+    }
 
     protected override void DoStateTransition(SelectionState state, bool instant)
     {
@@ -49,9 +55,7 @@ public class ModuleButton : Button
     public override void OnPointerClick(PointerEventData eventData)
     {
         if (characteristics == null)
-        {
             characteristics = PlayerCharacteristics.Instance;
-        }
 
         if (pendingButton != null && pendingButton != this)
         {
@@ -65,22 +69,32 @@ public class ModuleButton : Button
             IsAwaitingConfirmation = true;
             pendingButton = this;
 
+            // ќстанавливаем все незавершЄнные анимации
+            characteristics.StopAllPreviews();
+
             if (TryGetComponent<UIModule>(out UIModule module))
             {
-                List<UIModule.Values> values = module.GetValues();
-
-                foreach (var value in values)
+                if (module.CancelCategory)
                 {
-                    string key = value.Name;
-                    int intValue = Mathf.RoundToInt(value.AddedValue);
+                    // ƒл€ модул€-пустышки: сбрасываем все предварительные изменени€ к текущим значени€м
+                    characteristics.RevertToCurrent();
+                }
+                else
+                {
+                    // ќбычный модуль: примен€ем его бонусы как предварительный просмотр
+                    foreach (var value in module.GetValues())
+                    {
+                        string key = value.Name;
+                        int intValue = Mathf.RoundToInt(value.AddedValue);
 
-                    if (characteristics.HasCharacteristic(key))
-                    {
-                        characteristics.SetChanges(key, intValue);
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"ћодуль {gameObject.name} пытаетс€ изменить характеристику '{key}', которой нет в PlayerCharacteristics!");
+                        if (characteristics.HasCharacteristic(key))
+                        {
+                            characteristics.SetChanges(key, intValue);
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"ћодуль {gameObject.name} пытаетс€ изменить характеристику '{key}', которой нет в PlayerCharacteristics!");
+                        }
                     }
                 }
             }
@@ -90,24 +104,33 @@ public class ModuleButton : Button
         }
         else
         {
-            // ¬торой клик - подтверждение выбора
-            IsAwaitingConfirmation = false;
-            firstPressReceived = false;
+            // ¬торой клик - подтверждение
+            if (!IsAwaitingConfirmation) return;
 
-            if (pendingButton == this)
-                pendingButton = null;
-
-            base.OnPointerClick(eventData);
-
-            characteristics.ApplyChanges();
-            characteristics.SetCelectedModule(this);
-
-            DoStateTransition(SelectionState.Normal, false);
+            StartCoroutine(ConfirmAndSelect(eventData));
         }
+    }
+
+    private IEnumerator ConfirmAndSelect(PointerEventData eventData)
+    {
+        IsAwaitingConfirmation = false;
+        firstPressReceived = false;
+
+        if (pendingButton == this)
+            pendingButton = null;
+
+        base.OnPointerClick(eventData);
+
+        characteristics.StopAllPreviews();
+        yield return StartCoroutine(characteristics.ApplyChangesCoroutine());
+
+        characteristics.SetCelectedModule(this);
     }
 
     public void ResetConfirmation()
     {
+        if (!firstPressReceived) return;
+
         firstPressReceived = false;
         IsAwaitingConfirmation = false;
 
@@ -116,6 +139,7 @@ public class ModuleButton : Button
 
         if (characteristics != null)
         {
+            characteristics.StopAllPreviews();
             characteristics.SetNeedToReset(true);
         }
 

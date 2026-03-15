@@ -37,9 +37,6 @@ public class HandleCatalog : MonoBehaviour
         Foot
     }
 
-    /// <summary>
-    /// Устанавливает текущую категорию без применения изменений.
-    /// </summary>
     public void SetModuleCategoryName(string name)
     {
         if (string.IsNullOrEmpty(name))
@@ -54,32 +51,22 @@ public class HandleCatalog : MonoBehaviour
             currentCategory = ModuleCategories.None;
     }
 
-    /// <summary>
-    /// Устанавливает режим показа подкатегорий.
-    /// </summary>
     public void SetModeToSubcategories()
     {
         currentMode = DisplayMode.Subcategories;
     }
 
-    /// <summary>
-    /// Устанавливает режим показа модулей.
-    /// </summary>
     public void SetModeToModules()
     {
         currentMode = DisplayMode.Modules;
     }
 
-    /// <summary>
-    /// Применяет изменения на основе текущей категории и установленного режима.
-    /// </summary>
     public void Apply()
     {
         if (currentCategory == ModuleCategories.None) return;
 
         if (currentMode == DisplayMode.Subcategories)
         {
-            // Режим подкатегорий – показываем подкатегории для текущей категории (если это Hand/Leg)
             if (currentCategory == ModuleCategories.Hand || currentCategory == ModuleCategories.Leg)
             {
                 ShowSubcategories(currentCategory);
@@ -87,21 +74,16 @@ public class HandleCatalog : MonoBehaviour
             else
             {
                 Debug.LogWarning($"Режим подкатегорий выбран для категории {currentCategory}, у которой нет подкатегорий. Ничего не отображается.");
-                // Можно либо ничего не показывать, либо показать что-то по умолчанию.
-                // По решению – просто скрываем всё.
                 HideAllItems();
-                title.text = currentCategory.ToString(); // но заголовок всё же обновим
+                title.text = currentCategory.ToString();
             }
         }
-        else // Modules
+        else
         {
             ShowModuleItems();
         }
     }
 
-    /// <summary>
-    /// Показывает подкатегории для указанной основной категории (Hand или Leg).
-    /// </summary>
     private void ShowSubcategories(ModuleCategories mainCategory)
     {
         if (mainCategory != ModuleCategories.Hand && mainCategory != ModuleCategories.Leg)
@@ -121,15 +103,12 @@ public class HandleCatalog : MonoBehaviour
             if (subNames.Contains(item.name))
             {
                 item.SetActive(true);
-                SetItemVisuals(item, true);      // визуалы кнопки включены
-                ShowModules(item, false);        // модули скрыты
+                SetItemVisuals(item, true);
+                ShowModules(item, false);
             }
         }
     }
 
-    /// <summary>
-    /// Показывает модули для текущей выбранной категории.
-    /// </summary>
     private void ShowModuleItems()
     {
         if (currentCategory == ModuleCategories.None) return;
@@ -144,21 +123,17 @@ public class HandleCatalog : MonoBehaviour
             if (item.name == currentCategory.ToString())
             {
                 item.SetActive(true);
-                SetItemVisuals(item, false);     // отключаем визуалы кнопки
-                ShowModules(item, true);         // включаем модули
+                SetItemVisuals(item, false);
+                ShowModules(item, true);
                 break;
             }
         }
     }
 
-    /// <summary>
-    /// Возвращает каталог в исходное состояние (видны только основные категории, подкатегории скрыты).
-    /// Также сбрасывает режим на Modules.
-    /// </summary>
     public void ResetCatalog()
     {
         title.text = "Modules";
-        currentMode = DisplayMode.Modules; // сбрасываем режим
+        currentMode = DisplayMode.Modules;
 
         HashSet<string> hiddenItemNames = new HashSet<string>
         {
@@ -179,10 +154,6 @@ public class HandleCatalog : MonoBehaviour
     {
         ResetCatalog();
     }
-
-    // ------------------------------------------------------------
-    // Вспомогательные методы
-    // ------------------------------------------------------------
 
     private void HideAllItems()
     {
@@ -221,7 +192,6 @@ public class HandleCatalog : MonoBehaviour
         if (item.TryGetComponent(out Image image))
             image.enabled = enabled;
 
-        // Первые два дочерних объекта: AnimatedImage и ModuleCategoryName
         if (item.transform.childCount >= 1)
             item.transform.GetChild(0).gameObject.SetActive(enabled);
 
