@@ -35,6 +35,8 @@ public class FollowTarget : MonoBehaviour
 
         if (isMoving)
         {
+            SC_TPSController TPS = GameObject.Find("TPS").GetComponent<SC_TPSController>();
+            shakeAmount = !TPS.isShift? 0.05F : 0.1F;
             shakeTimer += Time.deltaTime * shakeSpeed;
 
             float shakeY = Mathf.Sin(shakeTimer) * shakeAmount;

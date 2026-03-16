@@ -31,6 +31,9 @@ public class SC_TPSController : MonoBehaviour
     [SerializeField] private float mouseSensitivity = 2f;
     [SerializeField] private float verticalLookLimit = 60f;
 
+    [HideInInspector]
+    public bool isShift = false;
+
     private bool canAttack = true;
 
     private Animator anim;
@@ -45,6 +48,7 @@ public class SC_TPSController : MonoBehaviour
 
     private void Start()
     {
+         
         controller = GetComponent<CharacterController>();
         anim = GetComponent<Animator>();
 
@@ -54,6 +58,7 @@ public class SC_TPSController : MonoBehaviour
 
     private void Update()
     {
+       
         HandleCamera();
         HandleMovement();
         DealDamage();
@@ -100,21 +105,21 @@ public class SC_TPSController : MonoBehaviour
 
         float horizontal = Input.GetAxisRaw("Horizontal");
         float vertical = Input.GetAxisRaw("Vertical");
-        bool isRunning = Input.GetKey(KeyCode.LeftShift);
+        isShift = Input.GetKey(KeyCode.LeftShift);
 
         Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
 
         if (inputDirection.magnitude > 0)
         {
             anim.SetBool("IsRunning", true);
-            anim.SetFloat("Speed", isRunning ? 1f : 0.8f);
+            anim.SetFloat("Speed", isShift ? 1f : 0.8f);
         }
         else
         {
             anim.SetBool("IsRunning", false);
         }
 
-        float targetSpeed = isRunning ? runSpeed : walkSpeed;
+        float targetSpeed = isShift ? runSpeed : walkSpeed;
 
         if (!isAttack)
         {
@@ -175,6 +180,12 @@ public class SC_TPSController : MonoBehaviour
         controller.Move(velocity * dt);
     }
 
+    public void TakeDamage(float damage)
+    {
+        ModelParent mP = GetComponentInChildren<ModelParent>();
+
+        mP.DamageDistribution(damage);
+    }
     private void DealDamage()
     {
         if (getAttack)

@@ -1708,7 +1708,7 @@ MonoBehaviour:
   closeDetectDistance: 5.81
   visionMask:
     serializedVersion: 2
-    m_Bits: 392
+    m_Bits: 136
   walkSpeed: 3
   runSpeed: 6
   patrolRadius: 12
@@ -1716,16 +1716,10 @@ MonoBehaviour:
   firePoint: {fileID: 4338481838691316823}
   projectilePrefab: {fileID: 6580794596308118851, guid: 07a8fc8081730554e84673e52bbb300f, type: 3}
   projectileSpeed: 20
-  projectileLifeTime: 5
   fireColldown: 0.4
-  meleeTargetLayer:
-    serializedVersion: 2
-    m_Bits: 0
-  meleeRange: 1.8
   attackDistance: 8
-  minRangedDistance: 5
   attackCooldown: 1.2
-  demege: 2
+  demage: 2
   searchTime: 4
   patrolWaitTime: 2
   losePlayerTime: 2

@@ -424,10 +424,10 @@ public class SC_EnemyAI : MonoBehaviour
 
         float targetFill = hp / maxHp;
 
+        StopCoroutine(SmoothBackBar(targetFill));
+        hpBackBar.fillAmount = hpBar.fillAmount;
         // передняя полоска падает сразу
         hpBar.fillAmount = targetFill;
-
-       
 
         hpCoroutine = StartCoroutine(SmoothBackBar(targetFill));
 
