@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
-using SlimeJump.Attributes;
 
 public class HandleCatalog : MonoBehaviour
 {
@@ -11,7 +10,7 @@ public class HandleCatalog : MonoBehaviour
     [SerializeField] private List<GameObject> items;
 
     [Space(5)]
-    [SerializeField, ReadOnly] private ModuleCategories currentCategory = ModuleCategories.None;
+    [SerializeField] private ModuleCategories currentCategory = ModuleCategories.None;
 
     // Режим отображения
     private enum DisplayMode
