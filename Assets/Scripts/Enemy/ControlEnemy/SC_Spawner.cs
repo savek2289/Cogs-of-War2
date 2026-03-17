@@ -20,6 +20,9 @@ public class SC_Spawner : MonoBehaviour
         public int EnemyCount => enemyCount;
         public List<GameObject> EnemyPref => enemyPref;
     }
+    
+    [Header("Состояние")]
+    public static List<GameObject> enemies = new List<GameObject>();
 
     [Header("Все волны")]
     [SerializeField] private List<WaveStatistics> WaveData;
@@ -27,8 +30,7 @@ public class SC_Spawner : MonoBehaviour
     [Header("Точки спавна")]
     [SerializeField] private Transform[] spawnPoints;
 
-    [Header("Состояние")]
-    [SerializeField] private List<GameObject> enemies = new List<GameObject>();
+        
 
     private int waveIndex = 0;
 

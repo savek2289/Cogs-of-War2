@@ -4,18 +4,24 @@ using UnityEngine;
 [RequireComponent(typeof(CharacterController))]
 public class SC_TPSController : MonoBehaviour
 {
+
+    [Space(20)]
+    public float damage = 3;
+    [SerializeField] private float hp = 25;
+
+    [Space(20)]
     [Header("Movement")]
     [SerializeField] private float walkSpeed = 5f;
     [SerializeField] private float runSpeed = 9f;
     [SerializeField] private float jumpForce = 8f;
     [SerializeField] private float gravity = 20f;
     [SerializeField] private float airControlPercent = 0.5f;
-    
+
     [Header("Rotation")]
     [SerializeField] private float rotationSmoothTime = 0.1f;
 
     [Header("Attack")]
-    [SerializeField] float attackDelay = 0.4f;    
+    [SerializeField] float attackDelay = 0.4f;
     [SerializeField] float attackCooldown = 1.2f;
     [SerializeField] private Transform hitPoint;
     [SerializeField] private LayerMask targetLayer;
@@ -25,8 +31,11 @@ public class SC_TPSController : MonoBehaviour
     [SerializeField] private float mouseSensitivity = 2f;
     [SerializeField] private float verticalLookLimit = 60f;
 
+    [HideInInspector]
+    public bool isShift = false;
+
     private bool canAttack = true;
-     
+
     private Animator anim;
     private CharacterController controller;
     private Vector3 velocity;
@@ -39,6 +48,7 @@ public class SC_TPSController : MonoBehaviour
 
     private void Start()
     {
+         
         controller = GetComponent<CharacterController>();
         anim = GetComponent<Animator>();
 
@@ -48,20 +58,23 @@ public class SC_TPSController : MonoBehaviour
 
     private void Update()
     {
+       
         HandleCamera();
         HandleMovement();
         DealDamage();
+
         if (Input.GetButton("Fire1"))
             HandleAttack();
+
         if (Input.GetButton("Fire2"))
             isAttack = true;
+
         if (Input.GetButtonUp("Fire2"))
             isAttack = false;
     }
 
     private void HandleCamera()
     {
-
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
 
@@ -71,8 +84,8 @@ public class SC_TPSController : MonoBehaviour
         cameraXRotation = Mathf.Clamp(cameraXRotation, -verticalLookLimit, verticalLookLimit);
 
         cameraParent.localRotation = Quaternion.Euler(cameraXRotation, currentYRotation, 0f);
-
     }
+
     private void HandleAttack()
     {
         if (!canAttack)
@@ -80,8 +93,11 @@ public class SC_TPSController : MonoBehaviour
 
         StartCoroutine(AttackRoutine());
     }
+
     private void HandleMovement()
     {
+        float dt = Time.unscaledDeltaTime;
+
         bool isGrounded = controller.isGrounded;
 
         if (isGrounded && verticalVelocity < 0)
@@ -89,31 +105,28 @@ public class SC_TPSController : MonoBehaviour
 
         float horizontal = Input.GetAxisRaw("Horizontal");
         float vertical = Input.GetAxisRaw("Vertical");
-        bool isRunning = Input.GetKey(KeyCode.LeftShift);
+        isShift = Input.GetKey(KeyCode.LeftShift);
 
-         
         Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
 
         if (inputDirection.magnitude > 0)
         {
             anim.SetBool("IsRunning", true);
-            anim.SetFloat("Speed", isRunning ? 1f : 0.8f);
-        
-                
+            anim.SetFloat("Speed", isShift ? 1f : 0.8f);
         }
         else
         {
             anim.SetBool("IsRunning", false);
- 
         }
 
-        float targetSpeed = isRunning ? runSpeed : walkSpeed;
+        float targetSpeed = isShift ? runSpeed : walkSpeed;
 
         if (!isAttack)
         {
             if (inputDirection.magnitude >= 0.1f)
             {
                 float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + currentYRotation;
+
                 float smoothAngle = Mathf.SmoothDampAngle(
                     transform.eulerAngles.y,
                     targetAngle,
@@ -132,7 +145,6 @@ public class SC_TPSController : MonoBehaviour
             }
             else
             {
-
                 velocity.x = 0f;
                 velocity.z = 0f;
             }
@@ -160,55 +172,38 @@ public class SC_TPSController : MonoBehaviour
         }
 
         if (Input.GetButtonDown("Jump") && isGrounded)
-        {
             verticalVelocity = jumpForce;
-        }
 
-        verticalVelocity -= gravity * Time.deltaTime;
+        verticalVelocity -= gravity * dt;
         velocity.y = verticalVelocity;
 
-        controller.Move(velocity * Time.deltaTime);
+        controller.Move(velocity * dt);
+    }
+
+    public void TakeDamage(float damage)
+    {
+        ModelParent mP = GetComponentInChildren<ModelParent>();
+
+        mP.DamageDistribution(damage);
     }
     private void DealDamage()
     {
-        if (getAttack == true)
+        if (getAttack)
         {
-
             Ray ray = new Ray(hitPoint.position, hitPoint.forward);
             RaycastHit hit;
 
             if (Physics.Raycast(ray, out hit, 0.3f, targetLayer))
             {
                 hit.collider.gameObject.SetActive(false);
-                 
                 getAttack = false;
                 return;
             }
 
-
             Debug.DrawRay(hitPoint.position, hitPoint.forward * 0.3f, Color.green);
         }
     }
-    //private IEnumerator RotateToCamera()
-    //{
-    //    isAttack = true;
-    //    Quaternion startRot = transform.rotation;
-    //    Quaternion targetRot = Quaternion.Euler(0f, currentYRotation, 0f);
 
-    //    float time = 0f;
-    //    float duration = 0.15f; // скорость поворота
-
-    //    while (time < duration)
-    //    {
-    //        time += Time.deltaTime;
-    //        transform.rotation = Quaternion.Slerp(startRot, targetRot, time / duration);
-    //        yield return null;
-    //    }
-
-    //    transform.rotation = targetRot;
-    //    yield return new WaitForSeconds(0.5f);
-    //    isAttack = false;
-    //}
     private IEnumerator AttackRoutine()
     {
         canAttack = false;
@@ -216,21 +211,16 @@ public class SC_TPSController : MonoBehaviour
         int j = Random.Range(0, 2);
 
         if (j == 0)
-        {
             anim.Play("Attacke1");
-        }
         else
-        {
             anim.Play("Attacke2");
-        }
-        yield return new WaitForSeconds(attackDelay);
+
+        yield return new WaitForSecondsRealtime(attackDelay);
 
         getAttack = true;
 
-        // Кулдаун
-        yield return new WaitForSeconds(attackCooldown);
+        yield return new WaitForSecondsRealtime(attackCooldown);
 
         canAttack = true;
     }
-
 }
