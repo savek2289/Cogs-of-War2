@@ -12,28 +12,35 @@ public class HandleCatalog : MonoBehaviour
     [Space(5)]
     [SerializeField] private ModuleCategories currentCategory = ModuleCategories.None;
 
-    // Режим отображения
     private enum DisplayMode
     {
-        Subcategories,  // показывать подкатегории (для Hand/Leg)
-        Modules         // показывать модули (для любой категории)
+        Subcategories,
+        Modules
     }
-    private DisplayMode currentMode = DisplayMode.Modules; // по умолчанию модули (после сброса будет ResetCatalog)
+    private DisplayMode currentMode = DisplayMode.Modules;
 
     public enum ModuleCategories
     {
         None,
         Head,
         Body,
-        Hand,
-        Elbow,
-        Forearm,
-        Brush,
+        RightHand,
+        LeftHand,
+        RightElbow,
+        LeftElbow,
+        RightForearm,
+        LeftForearm,
+        RightBrush,
+        LeftBrush,
         Pelvis,
-        Leg,
-        Hip,
-        Calf,
-        Foot
+        RightLeg,
+        LeftLeg,
+        RightHip,
+        LeftHip,
+        RightCalf,
+        LeftCalf,
+        RightFoot,
+        LeftFoot
     }
 
     public void SetModuleCategoryName(string name)
@@ -66,7 +73,8 @@ public class HandleCatalog : MonoBehaviour
 
         if (currentMode == DisplayMode.Subcategories)
         {
-            if (currentCategory == ModuleCategories.Hand || currentCategory == ModuleCategories.Leg)
+            // Проверяем, является ли текущая категория одной из конечностей, имеющих подкатегории
+            if (IsLimbCategory(currentCategory))
             {
                 ShowSubcategories(currentCategory);
             }
@@ -83,19 +91,25 @@ public class HandleCatalog : MonoBehaviour
         }
     }
 
-    private void ShowSubcategories(ModuleCategories mainCategory)
+    private bool IsLimbCategory(ModuleCategories cat)
     {
-        if (mainCategory != ModuleCategories.Hand && mainCategory != ModuleCategories.Leg)
+        return cat == ModuleCategories.RightHand || cat == ModuleCategories.LeftHand ||
+               cat == ModuleCategories.RightLeg || cat == ModuleCategories.LeftLeg;
+    }
+
+    private void ShowSubcategories(ModuleCategories limbCategory)
+    {
+        if (!IsLimbCategory(limbCategory))
         {
-            Debug.LogWarning("ShowSubcategories вызван для категории без подкатегорий: " + mainCategory);
+            Debug.LogWarning("ShowSubcategories вызван для категории без подкатегорий: " + limbCategory);
             return;
         }
 
-        title.text = mainCategory.ToString();
+        title.text = limbCategory.ToString();
 
         HideAllItems();
 
-        HashSet<string> subNames = GetSubcategoryNames(mainCategory);
+        HashSet<string> subNames = GetSubcategoryNames(limbCategory);
         foreach (var item in items)
         {
             if (item == null) continue;
@@ -134,9 +148,15 @@ public class HandleCatalog : MonoBehaviour
         title.text = "Modules";
         currentMode = DisplayMode.Modules;
 
+        // Список имён подкатегорий, которые должны быть скрыты при сбросе
         HashSet<string> hiddenItemNames = new HashSet<string>
         {
-            "Elbow", "Forearm", "Brush", "Hip", "Calf", "Foot"
+            "LeftElbow", "RightElbow",
+            "LeftForearm", "RightForearm",
+            "LeftBrush", "RightBrush",
+            "LeftHip", "RightHip",
+            "LeftCalf", "RightCalf",
+            "LeftFoot", "RightFoot"
         };
 
         foreach (var item in items)
@@ -160,20 +180,34 @@ public class HandleCatalog : MonoBehaviour
             if (item != null) item.SetActive(false);
     }
 
-    private HashSet<string> GetSubcategoryNames(ModuleCategories mainCategory)
+    private HashSet<string> GetSubcategoryNames(ModuleCategories limbCategory)
     {
         var set = new HashSet<string>();
-        if (mainCategory == ModuleCategories.Hand)
+        switch (limbCategory)
         {
-            set.Add("Elbow");
-            set.Add("Forearm");
-            set.Add("Brush");
-        }
-        else if (mainCategory == ModuleCategories.Leg)
-        {
-            set.Add("Hip");
-            set.Add("Calf");
-            set.Add("Foot");
+            case ModuleCategories.RightHand:
+                set.Add("RightElbow");
+                set.Add("RightForearm");
+                set.Add("RightBrush");
+                break;
+            case ModuleCategories.LeftHand:
+                set.Add("LeftElbow");
+                set.Add("LeftForearm");
+                set.Add("LeftBrush");
+                break;
+            case ModuleCategories.RightLeg:
+                set.Add("RightHip");
+                set.Add("RightCalf");
+                set.Add("RightFoot");
+                break;
+            case ModuleCategories.LeftLeg:
+                set.Add("LeftHip");
+                set.Add("LeftCalf");
+                set.Add("LeftFoot");
+                break;
+            default:
+                Debug.LogWarning($"GetSubcategoryNames вызван для неподдерживаемой категории: {limbCategory}");
+                break;
         }
         return set;
     }

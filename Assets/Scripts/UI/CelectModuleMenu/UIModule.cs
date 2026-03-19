@@ -7,6 +7,13 @@ public class UIModule : MonoBehaviour
 {
     [SerializeField] PlayerCharacteristics characteristics;
 
+    [Space(5)]
+
+    [SerializeField] private string categoryName;
+    [SerializeField] private GameObject module;
+
+    [Space(5)]
+
     [SerializeField] private List<Values> values;
     [SerializeField] private bool cancelCategory; // true = модуль отменяет выбор в своей категории
 
@@ -24,6 +31,10 @@ public class UIModule : MonoBehaviour
     public bool CancelCategory => cancelCategory;
 
     public List<Values> GetValues() => values;
+
+    public string GetCategoryName() => categoryName;
+
+    public GameObject GetModule() => module;
 
     public float GetValueForCharacteristic(string characteristicName)
     {
