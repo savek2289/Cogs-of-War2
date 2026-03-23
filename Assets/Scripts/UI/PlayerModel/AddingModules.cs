@@ -1,19 +1,27 @@
 using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class AddingModules : MonoBehaviour
 {
-    [SerializeField] List<GameObject> allModules;
+    public static AddingModules Instance { get; private set; }
 
-    [SerializeField] List<GameObject> parents;
+    [SerializeField] private List<GameObject> allModules;
+    [SerializeField] private List<GameObject> parents;
 
     private Dictionary<string, GameObject> activeModules = new();
     private Dictionary<string, GameObject> moduleParents = new();
 
     private void Awake()
     {
+        Instance = this;
+        InitializeModuleParents();
+    }
+
+    private void InitializeModuleParents()
+    {
+        // Здесь должна быть ваша существующая инициализация словарей
+        // (как в вашем исходном коде)
         activeModules.Add("Body", null);
         activeModules.Add("Elbow", null);
         activeModules.Add("Forearm", null);
@@ -39,6 +47,7 @@ public class AddingModules : MonoBehaviour
         moduleParents.Add("LeftHip", parents[12]);
     }
 
+    // Ваш существующий метод (исправлен)
     public void SetModule(UIModule uiModuleScript)
     {
         if (uiModuleScript == null) return;
@@ -46,26 +55,98 @@ public class AddingModules : MonoBehaviour
         GameObject module = uiModuleScript.GetModule();
         string category = uiModuleScript.GetCategoryName();
 
-        if (moduleParents[category].transform.childCount > 0)
+        if (!moduleParents.TryGetValue(category, out GameObject parent))
         {
-            DestroyImmediate(moduleParents[category].transform.GetChild(0).gameObject);
-            activeModules.Remove(category);
+            Debug.LogWarning($"Category {category} not found in moduleParents!");
+            return;
         }
+
+        // Удаляем существующий дочерний объект
+        if (parent.transform.childCount > 0)
+            DestroyImmediate(parent.transform.GetChild(0).gameObject);
+
+        // Всегда удаляем старый ключ из словаря, даже если module == null
+        activeModules.Remove(category);
 
         if (module != null)
         {
-            activeModules.Add(category, module);
-            Instantiate(module, moduleParents[category].transform);
+            activeModules[category] = module; // безопасное присваивание
+            Instantiate(module, parent.transform);
         }
     }
 
-    private bool CheckExistModule(GameObject module)
+    // Новый метод для восстановления по префабу (без UIModule)
+    public void SetModuleByPrefab(string category, GameObject modulePrefab)
     {
-        for (int i = 0; i < allModules.Count; i++)
+        if (string.IsNullOrEmpty(category) || modulePrefab == null) return;
+        if (!moduleParents.TryGetValue(category, out GameObject parent)) return;
+
+        if (parent.transform.childCount > 0)
+            DestroyImmediate(parent.transform.GetChild(0).gameObject);
+
+        activeModules.Remove(category);
+        activeModules[category] = modulePrefab;
+        Instantiate(modulePrefab, parent.transform);
+    }
+
+    // Очистка всех визуальных модулей (исправлена)
+    private void ClearAllVisuals()
+    {
+        // Создаём копию ключей, чтобы безопасно итерировать
+        List<string> categories = new List<string>(activeModules.Keys);
+        foreach (string category in categories)
         {
-            if(allModules[i] == module) return true;
+            if (moduleParents.TryGetValue(category, out GameObject parent) && parent != null)
+            {
+                if (parent.transform.childCount > 0)
+                    DestroyImmediate(parent.transform.GetChild(0).gameObject);
+            }
+            activeModules.Remove(category);
         }
 
-        return false;
+        // Дополнительная очистка для категорий, где child есть, но ключ отсутствует
+        foreach (var kv in moduleParents)
+        {
+            if (kv.Value != null && kv.Value.transform.childCount > 0)
+                DestroyImmediate(kv.Value.transform.GetChild(0).gameObject);
+        }
+    }
+
+    // Восстановление из сохранения
+    public void RestoreActiveModules(List<SaveData.ActiveModule> snapshot)
+    {
+        ClearAllVisuals();
+
+        foreach (var entry in snapshot)
+        {
+            GameObject modulePrefab = FindModulePrefabByName(entry.moduleName);
+            if (modulePrefab != null)
+                SetModuleByPrefab(entry.categoryName, modulePrefab);
+            else
+                Debug.LogWarning($"Module prefab {entry.moduleName} not found in allModules list.");
+        }
+    }
+
+    private GameObject FindModulePrefabByName(string moduleName)
+    {
+        return allModules.Find(m => m != null && m.name == moduleName);
+    }
+
+    // Снимок текущих активных модулей для сохранения
+    public List<SaveData.ActiveModule> GetActiveModulesSnapshot()
+    {
+        List<SaveData.ActiveModule> snapshot = new List<SaveData.ActiveModule>();
+        foreach (var kv in activeModules)
+        {
+            if (kv.Value != null)
+            {
+                snapshot.Add(new SaveData.ActiveModule
+                {
+                    categoryName = kv.Key,
+                    moduleName = kv.Value.name
+                });
+            }
+        }
+        return snapshot;
     }
 }

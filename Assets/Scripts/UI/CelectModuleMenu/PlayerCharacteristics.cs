@@ -13,7 +13,8 @@ public class PlayerCharacteristics : MonoBehaviour
     public class Characteristic
     {
         [SerializeField] private string name;
-        [SerializeField] private float baseValue; // изменено на float
+        [SerializeField] private float baseValue;
+        [SerializeField] private float maxValue;
         [Space(10)]
         [SerializeField] private Slider whiteSlider;
         [SerializeField] private Slider colorSlider;
@@ -21,6 +22,7 @@ public class PlayerCharacteristics : MonoBehaviour
 
         public string Name => name;
         public float BaseValue => baseValue;
+        public float MaxValue => maxValue;
         public Slider WhiteSlider => whiteSlider;
         public Slider ColorSlider => colorSlider;
         public TextMeshProUGUI Value => value;
@@ -42,24 +44,21 @@ public class PlayerCharacteristics : MonoBehaviour
     [Space(10)]
     [SerializeField] private List<ModuleCategory> allCategories;
 
+    // Данные
     private Dictionary<string, Characteristic> characteristicsMap;
-    private Dictionary<string, float> currentCharacteristicValues; // подтверждённые значения (float)
     private Dictionary<string, float> baseCharacteristicValues;
-    private Dictionary<string, float> maxCharacteristicValues; // максимальные значения (float)
+    private Dictionary<string, float> confirmedValues;     // финальные
+    private Dictionary<string, float> previewValues;       // целевые значения предпросмотра (для текста и для одного из слайдеров)
+    private Dictionary<string, float> currentDisplayValues; // текущие значения для анимации текста
 
+    // Управление модулями
     private List<UIModule> allModulesList;
-    private int? selectedModuleIndex = null;          // индекс последнего подтверждённого модуля (для кнопок)
+    private int? selectedModuleIndex = null;
     private ModuleCategory lastSelectedCategory = null;
-
-    // Словарь выбранных модулей по категориям
     private Dictionary<ModuleCategory, UIModule> selectedModulesByCategory;
 
-    // Последние рассчитанные цели для предпросмотра
-    private Dictionary<string, (float targetWhite, float targetColor)> lastPreviewTargets;
-
-    private bool needToReset = false;   // не используется в новой логике, оставлено для совместимости
-    private Coroutine revertCoroutine = null;
-    private bool isReverting = false;
+    // Плавность
+    private Coroutine currentAnimation;
 
     private void Awake()
     {
@@ -68,9 +67,10 @@ public class PlayerCharacteristics : MonoBehaviour
         if (characteristicsData == null) return;
 
         characteristicsMap = new Dictionary<string, Characteristic>();
-        currentCharacteristicValues = new Dictionary<string, float>();
         baseCharacteristicValues = new Dictionary<string, float>();
-        maxCharacteristicValues = new Dictionary<string, float>();
+        confirmedValues = new Dictionary<string, float>();
+        previewValues = new Dictionary<string, float>();
+        currentDisplayValues = new Dictionary<string, float>();
 
         foreach (var ch in characteristicsData)
         {
@@ -87,135 +87,34 @@ public class PlayerCharacteristics : MonoBehaviour
                 if (mod != null && !allModulesList.Contains(mod))
                     allModulesList.Add(mod);
 
+        // Инициализация
         foreach (var pair in characteristicsMap)
         {
             string name = pair.Key;
             Characteristic ch = pair.Value;
             float baseVal = ch.BaseValue;
             baseCharacteristicValues[name] = baseVal;
-            currentCharacteristicValues[name] = baseVal;
-        }
-
-        // Проверка синхронизации
-        foreach (var key in characteristicsMap.Keys)
-        {
-            if (!baseCharacteristicValues.ContainsKey(key))
-                Debug.LogError($"Характеристика '{key}' отсутствует в baseCharacteristicValues!");
-        }
-
-        maxCharacteristicValues = ComputeMaxCharacteristicValues();
-
-        foreach (var pair in characteristicsMap)
-        {
-            string name = pair.Key;
-            Characteristic ch = pair.Value;
-            float baseVal = baseCharacteristicValues[name];
-            float maxVal = maxCharacteristicValues[name];
-
-            ch.WhiteSlider.maxValue = maxVal;
-            ch.ColorSlider.maxValue = maxVal;
+            confirmedValues[name] = baseVal;
+            previewValues[name] = baseVal;
+            currentDisplayValues[name] = baseVal;
+            ch.WhiteSlider.maxValue = ch.MaxValue;
             ch.WhiteSlider.value = baseVal;
+            ch.ColorSlider.maxValue = ch.MaxValue;
             ch.ColorSlider.value = baseVal;
-            ch.Value.text = Mathf.RoundToInt(baseVal).ToString();
+            ch.Value.text = baseVal.ToString("0.#");
+            ch.Value.color = Color.white;
             ch.ColorSlider.fillRect.GetComponent<Image>().color = Color.white;
         }
 
         HideAllFrames();
-
-        // Инициализация словарей
         selectedModulesByCategory = new Dictionary<ModuleCategory, UIModule>();
-        lastPreviewTargets = new Dictionary<string, (float, float)>();
     }
 
-    /// <summary>
-    /// Вычисляет максимально возможное значение для каждой характеристики,
-    /// перебирая все допустимые комбинации модулей (не более одного из категории).
-    /// </summary>
-    private Dictionary<string, float> ComputeMaxCharacteristicValues()
+    private void Start()
     {
-        var maxValues = new Dictionary<string, float>(baseCharacteristicValues);
-
-        var categories = new List<List<UIModule>>();
-        foreach (var cat in allCategories)
+        if (SaveSystem.HasSaveFile())
         {
-            var validModules = new List<UIModule>();
-            foreach (var mod in cat.Modules)
-            {
-                if (mod != null && !mod.CancelCategory)
-                    validModules.Add(mod);
-            }
-            validModules.Insert(0, null); // возможность не выбирать модуль
-            categories.Add(validModules);
-        }
-
-        var tempBonuses = new Dictionary<string, float>();
-        ExploreCombinations(0, tempBonuses, categories, maxValues);
-
-        return maxValues;
-    }
-
-    private void ExploreCombinations(int catIndex, Dictionary<string, float> tempBonuses,
-                                     List<List<UIModule>> categories, Dictionary<string, float> maxValues)
-    {
-        if (catIndex >= categories.Count)
-        {
-            foreach (var kv in tempBonuses)
-            {
-                string charName = kv.Key;
-
-                if (!baseCharacteristicValues.TryGetValue(charName, out float baseVal))
-                {
-                    Debug.LogWarning($"Характеристика '{charName}' отсутствует в baseCharacteristicValues, используется 0.");
-                    baseVal = 0;
-                }
-
-                float total = baseVal + kv.Value;
-
-                if (maxValues.TryGetValue(charName, out float currentMax))
-                {
-                    if (total > currentMax)
-                        maxValues[charName] = total;
-                }
-                else
-                {
-                    maxValues[charName] = total;
-                }
-            }
-            return;
-        }
-
-        foreach (var module in categories[catIndex])
-        {
-            if (module != null)
-            {
-                foreach (var val in module.GetValues())
-                {
-                    string charName = val.Name;
-                    if (!characteristicsMap.ContainsKey(charName)) continue;
-
-                    float bonus = val.AddedValue; // уже float
-                    if (tempBonuses.ContainsKey(charName))
-                        tempBonuses[charName] += bonus;
-                    else
-                        tempBonuses[charName] = bonus;
-                }
-            }
-
-            ExploreCombinations(catIndex + 1, tempBonuses, categories, maxValues);
-
-            if (module != null)
-            {
-                foreach (var val in module.GetValues())
-                {
-                    string charName = val.Name;
-                    if (!characteristicsMap.ContainsKey(charName)) continue;
-
-                    float bonus = val.AddedValue;
-                    tempBonuses[charName] -= bonus;
-                    if (Math.Abs(tempBonuses[charName]) < 0.001f)
-                        tempBonuses.Remove(charName);
-                }
-            }
+            SaveSystem.LoadGame(this, AddingModules.Instance);
         }
     }
 
@@ -226,19 +125,13 @@ public class PlayerCharacteristics : MonoBehaviour
                 cat.CelectFrame.SetActive(false);
     }
 
-    // ================== Предварительный просмотр модуля ==================
+    // ================== Предпросмотр ==================
 
-    /// <summary>
-    /// Плавно переводит все характеристики в состояние предварительного просмотра указанного модуля.
-    /// Учитывает все ранее выбранные модули из разных категорий.
-    /// </summary>
     public void PreviewModule(UIModule newModule)
     {
-        StopAllCoroutines();
-        isReverting = false;
-        revertCoroutine = null;
+        if (currentAnimation != null) StopCoroutine(currentAnimation);
 
-        // Определяем категорию нового модуля
+        // Определяем категорию
         ModuleCategory newCategory = null;
         foreach (var cat in allCategories)
         {
@@ -248,18 +141,18 @@ public class PlayerCharacteristics : MonoBehaviour
                 break;
             }
         }
-
         if (newCategory == null)
         {
             Debug.LogWarning($"Модуль {newModule.name} не принадлежит ни одной категории!");
             return;
         }
 
-        // Получаем старый модуль в этой категории (если есть)
+        // Получаем старый модуль в этой категории
         selectedModulesByCategory.TryGetValue(newCategory, out UIModule oldModule);
 
-        // Суммируем бонусы из всех категорий, кроме текущей
-        Dictionary<string, float> bonusesFromOtherCategories = new Dictionary<string, float>();
+        // Строим временные бонусы
+        var tempBonuses = new Dictionary<string, Dictionary<string, float>>();
+
         foreach (var kv in selectedModulesByCategory)
         {
             ModuleCategory cat = kv.Key;
@@ -267,256 +160,296 @@ public class PlayerCharacteristics : MonoBehaviour
             if (cat == newCategory) continue;
             if (mod == null || mod.CancelCategory) continue;
 
+            var bonuses = new Dictionary<string, float>();
             foreach (var val in mod.GetValues())
             {
-                string charName = val.Name;
-                if (!characteristicsMap.ContainsKey(charName)) continue;
-                if (bonusesFromOtherCategories.ContainsKey(charName))
-                    bonusesFromOtherCategories[charName] += val.AddedValue;
-                else
-                    bonusesFromOtherCategories[charName] = val.AddedValue;
+                if (!characteristicsMap.ContainsKey(val.Name)) continue;
+                bonuses[val.Name] = val.AddedValue;
+            }
+            tempBonuses[cat.CategoryName] = bonuses;
+        }
+
+        // Добавляем новый модуль (если не cancel)
+        if (!newModule.CancelCategory)
+        {
+            var newBonuses = new Dictionary<string, float>();
+            foreach (var val in newModule.GetValues())
+            {
+                if (!characteristicsMap.ContainsKey(val.Name)) continue;
+                newBonuses[val.Name] = val.AddedValue;
+            }
+            tempBonuses[newCategory.CategoryName] = newBonuses;
+        }
+
+        // Вычисляем preview значения
+        foreach (var pair in baseCharacteristicValues)
+            previewValues[pair.Key] = pair.Value;
+
+        foreach (var catBonuses in tempBonuses)
+        {
+            foreach (var bonus in catBonuses.Value)
+            {
+                string charName = bonus.Key;
+                previewValues[charName] = Mathf.Max(0, previewValues[charName] + bonus.Value);
             }
         }
 
-        // Целевые значения для каждой характеристики
-        Dictionary<string, (float targetWhite, float targetColor)> targets =
-            new Dictionary<string, (float, float)>();
+        // Ограничиваем максимумом
+        foreach (var pair in characteristicsMap)
+        {
+            string name = pair.Key;
+            previewValues[name] = Mathf.Clamp(previewValues[name], 0, pair.Value.MaxValue);
+        }
+
+        // Формируем цели для белого, цветного слайдеров и текста
+        var whiteTargets = new Dictionary<string, float>();
+        var colorTargets = new Dictionary<string, float>();
+        var textTargets = new Dictionary<string, float>();  // всегда preview
+        var textColors = new Dictionary<string, Color>();
+        var sliderColors = new Dictionary<string, Color>();
 
         foreach (var pair in characteristicsMap)
         {
-            string charName = pair.Key;
-            float baseVal = currentCharacteristicValues[charName];
-            float otherBonus = bonusesFromOtherCategories.ContainsKey(charName) ? bonusesFromOtherCategories[charName] : 0f;
+            string name = pair.Key;
+            float confirmed = confirmedValues[name];
+            float preview = previewValues[name];
 
-            // Бонус старого модуля в этой категории по данной характеристике
-            float oldBonus = 0f;
-            if (oldModule != null && !oldModule.CancelCategory)
+            textTargets[name] = preview;  // текст всегда показывает preview
+
+            if (preview > confirmed + 0.001f) // увеличение
             {
-                foreach (var val in oldModule.GetValues())
-                {
-                    if (val.Name == charName)
-                    {
-                        oldBonus = val.AddedValue;
-                        break;
-                    }
-                }
+                whiteTargets[name] = confirmed;       // белый остаётся
+                colorTargets[name] = preview;         // цветной идёт вверх
+                textColors[name] = Color.green;
+                sliderColors[name] = Color.green;
             }
-
-            // Бонус нового модуля по данной характеристике
-            float newBonus = 0f;
-            if (!newModule.CancelCategory)
+            else if (preview < confirmed - 0.001f) // уменьшение
             {
-                foreach (var val in newModule.GetValues())
-                {
-                    if (val.Name == charName)
-                    {
-                        newBonus = val.AddedValue;
-                        break;
-                    }
-                }
+                whiteTargets[name] = preview;         // белый идёт вниз
+                colorTargets[name] = confirmed;       // цветной остаётся
+                textColors[name] = Color.red;
+                sliderColors[name] = Color.red;
             }
-
-            float finalValue = baseVal + otherBonus + newBonus;
-            float currentWithoutNewCategory = baseVal + otherBonus + oldBonus; // то, что сейчас подтверждено (с учётом старого модуля)
-
-            // Определяем движение слайдеров
-            float tw, tc;
-            if (newBonus >= oldBonus)
+            else // равно
             {
-                // Увеличение или равно: белый остаётся на старом уровне, цветной идёт к финалу
-                tw = currentWithoutNewCategory;
-                tc = finalValue;
+                whiteTargets[name] = confirmed;
+                colorTargets[name] = confirmed;
+                textColors[name] = Color.white;
+                sliderColors[name] = Color.white;
             }
-            else
-            {
-                // Уменьшение: белый идёт к финалу, цветной остаётся на старом уровне
-                tw = finalValue;
-                tc = currentWithoutNewCategory;
-            }
-
-            targets[charName] = (tw, tc);
         }
 
-        // Сохраняем цели для мгновенного восстановления при подтверждении
-        lastPreviewTargets.Clear();
-        foreach (var kv in targets)
-            lastPreviewTargets.Add(kv.Key, kv.Value);
-
-        StartCoroutine(AnimatePreview(targets, 0.3f));
+        // Запускаем анимацию
+        currentAnimation = StartCoroutine(AnimatePreview(whiteTargets, colorTargets, textTargets, textColors, sliderColors, 0.3f));
     }
 
-    private IEnumerator AnimatePreview(Dictionary<string, (float targetWhite, float targetColor)> targets, float duration)
+    // ================== Подтверждение ==================
+
+    public void ApplyChanges(UIModule module)
     {
-        // Запоминаем начальные значения слайдеров
-        Dictionary<string, float> startWhite = new Dictionary<string, float>();
-        Dictionary<string, float> startColor = new Dictionary<string, float>();
-        foreach (var pair in characteristicsMap)
+        if (currentAnimation != null) StopCoroutine(currentAnimation);
+
+        // Обновляем словарь подтверждённых модулей
+        ModuleCategory category = null;
+        foreach (var cat in allCategories)
         {
-            startWhite[pair.Key] = pair.Value.WhiteSlider.value;
-            startColor[pair.Key] = pair.Value.ColorSlider.value;
+            if (cat.Modules.Contains(module))
+            {
+                category = cat;
+                break;
+            }
+        }
+        if (category != null)
+        {
+            if (selectedModulesByCategory.ContainsKey(category))
+                selectedModulesByCategory[category] = module;
+            else
+                selectedModulesByCategory.Add(category, module);
         }
 
-        float elapsed = 0f;
+        // Пересчитываем confirmed значения
+        foreach (var pair in baseCharacteristicValues)
+            confirmedValues[pair.Key] = pair.Value;
+
+        foreach (var kv in selectedModulesByCategory)
+        {
+            UIModule mod = kv.Value;
+            if (mod == null || mod.CancelCategory) continue;
+            foreach (var val in mod.GetValues())
+            {
+                if (!characteristicsMap.ContainsKey(val.Name)) continue;
+                confirmedValues[val.Name] += val.AddedValue;
+            }
+        }
+
+        // Ограничиваем максимумом
+        foreach (var pair in characteristicsMap)
+            confirmedValues[pair.Key] = Mathf.Clamp(confirmedValues[pair.Key], 0, pair.Value.MaxValue);
+
+        // Копируем preview
+        foreach (var pair in confirmedValues)
+            previewValues[pair.Key] = pair.Value;
+
+        // Анимируем оба слайдера к confirmed, цветной становится белым
+        var whiteColors = new Dictionary<string, Color>();
+        foreach (var pair in characteristicsMap)
+            whiteColors[pair.Key] = Color.white;
+
+        currentAnimation = StartCoroutine(AnimateConfirm(confirmedValues, whiteColors, 0.5f));
+
+        Debug.Log("Характеристики подтверждены: " + string.Join(", ", confirmedValues));
+    }
+
+    // ================== Отмена предпросмотра ==================
+
+    public void CancelPreview()
+    {
+        if (currentAnimation != null) StopCoroutine(currentAnimation);
+
+        // Возвращаем preview к confirmed
+        foreach (var pair in confirmedValues)
+            previewValues[pair.Key] = pair.Value;
+
+        // Анимируем оба слайдера к confirmed, цветной становится белым
+        var whiteColors = new Dictionary<string, Color>();
+        foreach (var pair in characteristicsMap)
+            whiteColors[pair.Key] = Color.white;
+
+        currentAnimation = StartCoroutine(AnimateCancel(confirmedValues, whiteColors, 0.3f));
+    }
+
+    // ================== Анимации ==================
+
+    /// <summary> Анимация предпросмотра: разные цели для белого, цветного слайдеров и текста </summary>
+    private IEnumerator AnimatePreview(Dictionary<string, float> whiteTargets, Dictionary<string, float> colorTargets,
+                                        Dictionary<string, float> textTargets, Dictionary<string, Color> textColors,
+                                        Dictionary<string, Color> sliderColors, float duration)
+    {
+        // Начальные значения
+        var startTextValues = new Dictionary<string, float>(currentDisplayValues);
+        var startTextColors = new Dictionary<string, Color>();
+        var startWhiteSliders = new Dictionary<string, float>();
+        var startColorSliders = new Dictionary<string, float>();
+        var startColorSliderColors = new Dictionary<string, Color>();
+        foreach (var pair in characteristicsMap)
+        {
+            string name = pair.Key;
+            Characteristic ch = pair.Value;
+            startTextColors[name] = ch.Value.color;
+            startWhiteSliders[name] = ch.WhiteSlider.value;
+            startColorSliders[name] = ch.ColorSlider.value;
+            startColorSliderColors[name] = ch.ColorSlider.fillRect.GetComponent<Image>().color;
+        }
+
+        float elapsed = 0;
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / duration;
-
             foreach (var pair in characteristicsMap)
             {
                 string name = pair.Key;
                 Characteristic ch = pair.Value;
-                (float targetWhite, float targetColor) = targets[name];
 
-                float newWhite = Mathf.Lerp(startWhite[name], targetWhite, t);
-                float newColor = Mathf.Lerp(startColor[name], targetColor, t);
+                // Текст – анимируем к textTargets
+                float newTextValue = Mathf.Lerp(startTextValues[name], textTargets[name], t);
+                currentDisplayValues[name] = newTextValue;
+                ch.Value.text = newTextValue.ToString("0.#");
+                ch.Value.color = Color.Lerp(startTextColors[name], textColors[name], t);
 
+                // Белый слайдер
+                float newWhite = Mathf.Lerp(startWhiteSliders[name], whiteTargets[name], t);
                 ch.WhiteSlider.value = newWhite;
+
+                // Цветной слайдер
+                float newColor = Mathf.Lerp(startColorSliders[name], colorTargets[name], t);
                 ch.ColorSlider.value = newColor;
-
-                // Определяем цвет на основе соотношения слайдеров
-                Image colorImage = ch.ColorSlider.fillRect.GetComponent<Image>();
-                if (newColor > newWhite + 0.01f)
-                    colorImage.color = Color.green;
-                else if (newColor < newWhite - 0.01f)
-                    colorImage.color = Color.red;
-                else
-                    colorImage.color = Color.white;
-
-                ch.Value.text = Mathf.RoundToInt(newColor).ToString();
+                ch.ColorSlider.fillRect.GetComponent<Image>().color = Color.Lerp(startColorSliderColors[name], sliderColors[name], t);
             }
             yield return null;
         }
 
-        // Финальная установка
+        // Финал
         foreach (var pair in characteristicsMap)
         {
             string name = pair.Key;
             Characteristic ch = pair.Value;
-            (float targetWhite, float targetColor) = targets[name];
-
-            ch.WhiteSlider.value = targetWhite;
-            ch.ColorSlider.value = targetColor;
-
-            Image colorImage = ch.ColorSlider.fillRect.GetComponent<Image>();
-            if (targetColor > targetWhite + 0.01f)
-                colorImage.color = Color.green;
-            else if (targetColor < targetWhite - 0.01f)
-                colorImage.color = Color.red;
-            else
-                colorImage.color = Color.white;
-
-            ch.Value.text = Mathf.RoundToInt(targetColor).ToString();
+            currentDisplayValues[name] = textTargets[name];
+            ch.Value.text = textTargets[name].ToString("0.#");
+            ch.Value.color = textColors[name];
+            ch.WhiteSlider.value = whiteTargets[name];
+            ch.ColorSlider.value = colorTargets[name];
+            ch.ColorSlider.fillRect.GetComponent<Image>().color = sliderColors[name];
         }
+        currentAnimation = null;
     }
 
-    /// <summary>
-    /// Мгновенно устанавливает слайдеры в последние рассчитанные цели предпросмотра.
-    /// Вызывается перед подтверждением, чтобы гарантировать старт с правильных позиций.
-    /// </summary>
-    public void SetToPreviewTargets()
+    /// <summary> Анимация подтверждения: оба слайдера к confirmed, цветной белеет </summary>
+    private IEnumerator AnimateConfirm(Dictionary<string, float> targetValues, Dictionary<string, Color> targetColors, float duration)
     {
-        if (lastPreviewTargets == null || lastPreviewTargets.Count == 0) return;
-
+        // Начальные значения
+        var startTextValues = new Dictionary<string, float>(currentDisplayValues);
+        var startTextColors = new Dictionary<string, Color>();
+        var startWhiteSliders = new Dictionary<string, float>();
+        var startColorSliders = new Dictionary<string, float>();
+        var startColorSliderColors = new Dictionary<string, Color>();
         foreach (var pair in characteristicsMap)
         {
             string name = pair.Key;
             Characteristic ch = pair.Value;
-            if (lastPreviewTargets.TryGetValue(name, out var target))
-            {
-                ch.WhiteSlider.value = target.targetWhite;
-                ch.ColorSlider.value = target.targetColor;
-                ch.Value.text = Mathf.RoundToInt(target.targetColor).ToString();
-
-                Image colorImage = ch.ColorSlider.fillRect.GetComponent<Image>();
-                if (target.targetColor > target.targetWhite + 0.01f)
-                    colorImage.color = Color.green;
-                else if (target.targetColor < target.targetWhite - 0.01f)
-                    colorImage.color = Color.red;
-                else
-                    colorImage.color = Color.white;
-            }
-        }
-    }
-
-    // ================== Публичные методы ==================
-
-    public void StopAllPreviews()
-    {
-        StopAllCoroutines();
-        isReverting = false;
-        revertCoroutine = null;
-    }
-
-    public IEnumerator ApplyChangesCoroutine()
-    {
-        // Плавно сводим слайдеры (зелёный -> белый догоняет; красный -> цветной догоняет)
-        List<Coroutine> coroutines = new List<Coroutine>();
-
-        foreach (var pair in characteristicsMap)
-        {
-            Characteristic ch = pair.Value;
-            Image colorImg = ch.ColorSlider.fillRect.GetComponent<Image>();
-            Color curColor = colorImg.color;
-
-            if (curColor == Color.green)
-            {
-                // Белый догоняет цветной
-                coroutines.Add(StartCoroutine(SmoothMove(ch.WhiteSlider, ch.ColorSlider.value, colorImg, curColor)));
-            }
-            else if (curColor == Color.red)
-            {
-                // Цветной догоняет белый
-                coroutines.Add(StartCoroutine(SmoothMove(ch.ColorSlider, ch.WhiteSlider.value, colorImg, curColor)));
-            }
+            startTextColors[name] = ch.Value.color;
+            startWhiteSliders[name] = ch.WhiteSlider.value;
+            startColorSliders[name] = ch.ColorSlider.value;
+            startColorSliderColors[name] = ch.ColorSlider.fillRect.GetComponent<Image>().color;
         }
 
-        foreach (var c in coroutines)
-            yield return c;
-
-        // Фиксируем значения
-        foreach (var pair in characteristicsMap)
-        {
-            string name = pair.Key;
-            Characteristic ch = pair.Value;
-            float final = ch.WhiteSlider.value; // после сведения оба равны
-            currentCharacteristicValues[name] = final;
-            ch.Value.text = Mathf.RoundToInt(final).ToString();
-            ch.ColorSlider.fillRect.GetComponent<Image>().color = Color.white;
-        }
-
-        Debug.Log("Характеристики подтверждены: " + string.Join(", ", currentCharacteristicValues));
-    }
-
-    private IEnumerator SmoothMove(Slider movingSlider, float targetValue, Image colorImage, Color startColor)
-    {
-        float startVal = movingSlider.value;
-        float duration = 0.5f;
-        float elapsed = 0f;
+        float elapsed = 0;
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / duration;
-            movingSlider.value = Mathf.Lerp(startVal, targetValue, t);
-            colorImage.color = Color.Lerp(startColor, Color.white, t);
+            foreach (var pair in characteristicsMap)
+            {
+                string name = pair.Key;
+                Characteristic ch = pair.Value;
+
+                float newTextValue = Mathf.Lerp(startTextValues[name], targetValues[name], t);
+                currentDisplayValues[name] = newTextValue;
+                ch.Value.text = newTextValue.ToString("0.#");
+                ch.Value.color = Color.Lerp(startTextColors[name], targetColors[name], t);
+
+                float newWhite = Mathf.Lerp(startWhiteSliders[name], targetValues[name], t);
+                ch.WhiteSlider.value = newWhite;
+
+                float newColor = Mathf.Lerp(startColorSliders[name], targetValues[name], t);
+                ch.ColorSlider.value = newColor;
+                ch.ColorSlider.fillRect.GetComponent<Image>().color = Color.Lerp(startColorSliderColors[name], targetColors[name], t);
+            }
             yield return null;
         }
-        movingSlider.value = targetValue;
-        colorImage.color = Color.white;
+
+        // Финал
+        foreach (var pair in characteristicsMap)
+        {
+            string name = pair.Key;
+            Characteristic ch = pair.Value;
+            currentDisplayValues[name] = targetValues[name];
+            ch.Value.text = targetValues[name].ToString("0.#");
+            ch.Value.color = targetColors[name];
+            ch.WhiteSlider.value = targetValues[name];
+            ch.ColorSlider.value = targetValues[name];
+            ch.ColorSlider.fillRect.GetComponent<Image>().color = targetColors[name];
+        }
+        currentAnimation = null;
     }
 
-    public float GetCurrentValue(string characteristicName)
+    /// <summary> Анимация отмены: оба слайдера к confirmed, цветной белеет </summary>
+    private IEnumerator AnimateCancel(Dictionary<string, float> targetValues, Dictionary<string, Color> targetColors, float duration)
     {
-        if (currentCharacteristicValues != null && currentCharacteristicValues.ContainsKey(characteristicName))
-            return currentCharacteristicValues[characteristicName];
-        Debug.LogWarning($"Характеристика {characteristicName} не найдена");
-        return 0;
+        yield return StartCoroutine(AnimateConfirm(targetValues, targetColors, duration));
     }
 
-    public bool HasCharacteristic(string name)
-    {
-        return characteristicsMap != null && characteristicsMap.ContainsKey(name);
-    }
+    // ================== Управление рамками и кнопками ==================
 
     public void SetCelectedModule(ModuleButton targetModule)
     {
@@ -547,14 +480,10 @@ public class PlayerCharacteristics : MonoBehaviour
 
         if (lastSelectedCategory != null && lastSelectedCategory.CelectFrame != null)
             lastSelectedCategory.CelectFrame.SetActive(false);
-
         category.CelectFrame.SetActive(true);
         RectTransform moduleRect = targetModule.GetComponent<RectTransform>();
         RectTransform frameRect = category.CelectFrame.GetComponent<RectTransform>();
-        frameRect.anchoredPosition = new Vector2(
-            moduleRect.anchoredPosition.x,
-            moduleRect.anchoredPosition.y - 1
-        );
+        frameRect.anchoredPosition = new Vector2(moduleRect.anchoredPosition.x, moduleRect.anchoredPosition.y - 1);
 
         if (selectedModuleIndex != null && selectedModuleIndex.Value < allModulesList.Count)
         {
@@ -566,44 +495,296 @@ public class PlayerCharacteristics : MonoBehaviour
         targetModule.enabled = false;
         selectedModuleIndex = allModulesList.IndexOf(module);
         lastSelectedCategory = category;
-
-        // Обновляем словарь выбранных модулей
-        if (selectedModulesByCategory.ContainsKey(category))
-            selectedModulesByCategory[category] = module;
-        else
-            selectedModulesByCategory.Add(category, module);
     }
 
-    /// <summary>
-    /// Сбрасывает все выбранные модули и возвращает характеристики к базовым значениям.
-    /// Вызывать при закрытии меню выбора модулей.
-    /// </summary>
     public void ClearSelection()
     {
+        if (currentAnimation != null) StopCoroutine(currentAnimation);
         selectedModulesByCategory.Clear();
         selectedModuleIndex = null;
         lastSelectedCategory = null;
-        lastPreviewTargets.Clear();
 
-        // Возвращаем все характеристики к базовым значениям
+        foreach (var pair in characteristicsMap)
+        {
+            string name = pair.Key;
+            float baseVal = baseCharacteristicValues[name];
+            confirmedValues[name] = baseVal;
+            previewValues[name] = baseVal;
+            currentDisplayValues[name] = baseVal;
+            Characteristic ch = pair.Value;
+            ch.WhiteSlider.value = baseVal;
+            ch.ColorSlider.value = baseVal;
+            ch.Value.text = baseVal.ToString("0.#");
+            ch.Value.color = Color.white;
+            ch.ColorSlider.fillRect.GetComponent<Image>().color = Color.white;
+        }
+
+        HideAllFrames();
+    }
+
+    // ================== Методы для мгновенного получения сохранённых характеристик ==================
+
+    public float GetConfirmedValue(string characteristicName)
+    {
+        if (confirmedValues != null && confirmedValues.ContainsKey(characteristicName))
+            return confirmedValues[characteristicName];
+        Debug.LogWarning($"Характеристика {characteristicName} не найдена");
+        return 0;
+    }
+
+    public Dictionary<string, float> GetAllConfirmedValues()
+    {
+        if (confirmedValues == null)
+            return new Dictionary<string, float>();
+        return new Dictionary<string, float>(confirmedValues);
+    }
+
+    // ================== Сохранение и загрузка ==================
+
+    /// <summary>
+    /// Формирует объект SaveData из текущего состояния.
+    /// </summary>
+    public SaveData GetSaveData()
+    {
+        SaveData data = new SaveData();
+
+        // Сохраняем подтверждённые значения характеристик
+        foreach (var kv in confirmedValues)
+        {
+            data.characteristicValues.Add(new SaveData.CharValuePair { name = kv.Key, value = kv.Value });
+        }
+
+        // Сохраняем выбранные модули по категориям
+        foreach (var kv in selectedModulesByCategory)
+        {
+            ModuleCategory category = kv.Key;
+            UIModule module = kv.Value;
+            if (module != null)
+            {
+                data.selectedModules.Add(new SaveData.ModulePair
+                {
+                    categoryName = category.CategoryName,
+                    moduleName = module.name
+                });
+            }
+        }
+
+        return data;
+    }
+
+    /// <summary>
+    /// Восстанавливает состояние из объекта SaveData.
+    /// </summary>
+    public void LoadFromSaveData(SaveData data)
+    {
+        // Останавливаем текущие анимации
+        if (currentAnimation != null) StopCoroutine(currentAnimation);
+
+        // Сбрасываем текущий выбор
+        selectedModulesByCategory.Clear();
+        selectedModuleIndex = null;
+        lastSelectedCategory = null;
+
+        // Восстанавливаем подтверждённые значения характеристик
+        foreach (var pair in data.characteristicValues)
+        {
+            if (characteristicsMap.ContainsKey(pair.name))
+            {
+                confirmedValues[pair.name] = Mathf.Clamp(pair.value, 0, characteristicsMap[pair.name].MaxValue);
+                previewValues[pair.name] = confirmedValues[pair.name];
+            }
+            else
+            {
+                Debug.LogWarning($"Characteristic {pair.name} not found in current game data.");
+            }
+        }
+
+        // Восстанавливаем выбранные модули
+        foreach (var modPair in data.selectedModules)
+        {
+            ModuleCategory category = FindCategoryByName(modPair.categoryName);
+            if (category != null)
+            {
+                UIModule module = FindModuleInCategory(category, modPair.moduleName);
+                if (module != null)
+                {
+                    selectedModulesByCategory[category] = module;
+                }
+                else
+                {
+                    Debug.LogWarning($"Module '{modPair.moduleName}' not found in category '{modPair.categoryName}'.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"Category '{modPair.categoryName}' not found.");
+            }
+        }
+
+        // Пересчитываем confirmedValues на основе загруженных модулей (на случай несоответствия)
+        RecalculateConfirmedFromModules();
+
+        // Синхронизируем preview с confirmed
+        foreach (var pair in confirmedValues)
+            previewValues[pair.Key] = pair.Value;
+
+        // Обновляем UI (слайдеры, текст)
+        UpdateUIImmediate();
+
+        // Скрываем все рамки – они будут активированы при первом клике на модуль
+        HideAllFrames();
+
+        // Включаем все кнопки модулей (чтобы сбросить блокировку)
+        foreach (var mod in allModulesList)
+        {
+            if (mod != null && mod.TryGetComponent<ModuleButton>(out var btn))
+                btn.enabled = true;
+        }
+
+        // Если после загрузки есть выбранные модули, можно обновить рамку для последнего выбранного (опционально)
+        if (selectedModulesByCategory.Count > 0)
+        {
+            // Возьмём первый попавшийся модуль и установим рамку (можно усовершенствовать)
+            foreach (var kv in selectedModulesByCategory)
+            {
+                UIModule mod = kv.Value;
+                if (mod != null && mod.TryGetComponent<ModuleButton>(out var btn))
+                {
+                    SetCelectedModule(btn);
+                    break;
+                }
+            }
+        }
+
+        Debug.Log("Data loaded from save.");
+    }
+
+    private ModuleCategory FindCategoryByName(string categoryName)
+    {
+        foreach (var cat in allCategories)
+        {
+            if (cat.CategoryName == categoryName)
+                return cat;
+        }
+        return null;
+    }
+
+    private UIModule FindModuleInCategory(ModuleCategory category, string moduleName)
+    {
+        foreach (var mod in category.Modules)
+        {
+            if (mod != null && mod.name == moduleName)
+                return mod;
+        }
+        return null;
+    }
+
+    private void RecalculateConfirmedFromModules()
+    {
+        // Сбрасываем на базовые значения
+        foreach (var pair in baseCharacteristicValues)
+            confirmedValues[pair.Key] = pair.Value;
+
+        // Суммируем бонусы выбранных модулей
+        foreach (var kv in selectedModulesByCategory)
+        {
+            UIModule mod = kv.Value;
+            if (mod == null || mod.CancelCategory) continue;
+            foreach (var val in mod.GetValues())
+            {
+                if (!characteristicsMap.ContainsKey(val.Name)) continue;
+                confirmedValues[val.Name] += val.AddedValue;
+            }
+        }
+
+        // Ограничиваем максимумом
+        foreach (var pair in characteristicsMap)
+            confirmedValues[pair.Key] = Mathf.Clamp(confirmedValues[pair.Key], 0, pair.Value.MaxValue);
+    }
+
+    // ================== Вспомогательные методы ==================
+
+    public float GetCurrentValue(string characteristicName)
+    {
+        if (confirmedValues != null && confirmedValues.ContainsKey(characteristicName))
+            return confirmedValues[characteristicName];
+        Debug.LogWarning($"Характеристика {characteristicName} не найдена");
+        return 0;
+    }
+
+    public bool HasCharacteristic(string name)
+    {
+        return characteristicsMap != null && characteristicsMap.ContainsKey(name);
+    }
+
+    public void LoadStatsOnly(SaveData data)
+    {
+        // Останавливаем анимации
+        if (currentAnimation != null) StopCoroutine(currentAnimation);
+
+        // Восстанавливаем значения характеристик
+        foreach (var pair in data.characteristicValues)
+        {
+            if (characteristicsMap.ContainsKey(pair.name))
+            {
+                confirmedValues[pair.name] = Mathf.Clamp(pair.value, 0, characteristicsMap[pair.name].MaxValue);
+                previewValues[pair.name] = confirmedValues[pair.name];
+            }
+        }
+
+        // Пересчитываем confirmedValues (на случай, если модули тоже изменились)
+        // Но если мы загружаем только статистику, возможно, не нужно пересчитывать.
+        // Оставляем как есть.
+
+        // Синхронизируем preview с confirmed
+        foreach (var pair in confirmedValues)
+            previewValues[pair.Key] = pair.Value;
+
+        // Обновляем UI
+        UpdateUIImmediate(); // реализуйте этот метод (он просто обновляет слайдеры и текст)
+
+        // Сбрасываем рамки и кнопки, но не трогаем визуальные модули
+        HideAllFrames();
+        foreach (var mod in allModulesList)
+            if (mod != null && mod.TryGetComponent<ModuleButton>(out var btn))
+                btn.enabled = true;
+    }
+
+    public void SaveGame()
+    {
+        if (PlayerCharacteristics.Instance != null)
+            SaveSystem.SaveGame(PlayerCharacteristics.Instance, AddingModules.Instance);
+        else
+            Debug.LogError("PlayerCharacteristics.Instance is null!");
+    }
+
+    // Заглушки для совместимости
+    public void StopAllPreviews() { if (currentAnimation != null) StopCoroutine(currentAnimation); }
+    public void SetToPreviewTargets() { }
+    public void SetChanges(string parameterName, int value) { }
+    public void SetNeedToReset(bool value) { }
+    public void RevertToCurrent() { }
+
+    public IEnumerator ApplyChangesCoroutine()
+    {
+        yield break;
+    }
+
+    /// <summary>
+    /// Мгновенно обновляет UI (слайдеры, текст, цвета) до подтверждённых значений без анимации.
+    /// </summary>
+    private void UpdateUIImmediate()
+    {
         foreach (var pair in characteristicsMap)
         {
             string name = pair.Key;
             Characteristic ch = pair.Value;
-            float baseVal = baseCharacteristicValues[name];
-            ch.WhiteSlider.value = baseVal;
-            ch.ColorSlider.value = baseVal;
-            ch.Value.text = Mathf.RoundToInt(baseVal).ToString();
+            float confirmed = confirmedValues[name];
+            ch.WhiteSlider.value = confirmed;
+            ch.ColorSlider.value = confirmed;
+            ch.Value.text = confirmed.ToString("0.#");
+            ch.Value.color = Color.white;
             ch.ColorSlider.fillRect.GetComponent<Image>().color = Color.white;
-            currentCharacteristicValues[name] = baseVal;
         }
-
-        // Скрываем все рамки
-        HideAllFrames();
     }
-
-    // Оставлено для обратной совместимости, но не используется в новой логике
-    public void SetChanges(string parameterName, int value) { }
-    public void SetNeedToReset(bool value) { needToReset = value; }
-    public void RevertToCurrent() { }
 }

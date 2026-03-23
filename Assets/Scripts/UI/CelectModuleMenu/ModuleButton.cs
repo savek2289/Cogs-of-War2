@@ -31,24 +31,13 @@ public class ModuleButton : Button
     protected override void DoStateTransition(SelectionState state, bool instant)
     {
         base.DoStateTransition(state, instant);
-
         switch (state)
         {
-            case SelectionState.Normal:
-                CurrentState = ButtonState.Normal;
-                break;
-            case SelectionState.Highlighted:
-                CurrentState = ButtonState.Highlighted;
-                break;
-            case SelectionState.Pressed:
-                CurrentState = ButtonState.Pressed;
-                break;
-            case SelectionState.Selected:
-                CurrentState = ButtonState.Selected;
-                break;
-            case SelectionState.Disabled:
-                CurrentState = ButtonState.Disabled;
-                break;
+            case SelectionState.Normal: CurrentState = ButtonState.Normal; break;
+            case SelectionState.Highlighted: CurrentState = ButtonState.Highlighted; break;
+            case SelectionState.Pressed: CurrentState = ButtonState.Pressed; break;
+            case SelectionState.Selected: CurrentState = ButtonState.Selected; break;
+            case SelectionState.Disabled: CurrentState = ButtonState.Disabled; break;
         }
     }
 
@@ -64,49 +53,24 @@ public class ModuleButton : Button
 
         if (!firstPressReceived)
         {
-            // ѕервый клик - предварительный просмотр
             firstPressReceived = true;
             IsAwaitingConfirmation = true;
             pendingButton = this;
 
-            // ќстанавливаем все незавершЄнные анимации
             characteristics.StopAllPreviews();
 
             if (TryGetComponent<UIModule>(out UIModule module))
             {
-                if (module.CancelCategory)
-                {
-                    // ƒл€ модул€-пустышки: сбрасываем все предварительные изменени€ к текущим значени€м
-                    characteristics.RevertToCurrent();
-                }
-                else
-                {
-                    // ќбычный модуль: примен€ем его бонусы как предварительный просмотр
-                    foreach (var value in module.GetValues())
-                    {
-                        string key = value.Name;
-                        int intValue = Mathf.RoundToInt(value.AddedValue);
-
-                        if (characteristics.HasCharacteristic(key))
-                        {
-                            characteristics.SetChanges(key, intValue);
-                        }
-                        else
-                        {
-                            Debug.LogWarning($"ћодуль {gameObject.name} пытаетс€ изменить характеристику '{key}', которой нет в PlayerCharacteristics!");
-                        }
-                    }
-                }
+                characteristics.PreviewModule(module);
             }
 
             characteristics.SetNeedToReset(true);
             DoStateTransition(SelectionState.Selected, false);
+            base.OnPointerClick(eventData);
         }
         else
         {
-            // ¬торой клик - подтверждение
             if (!IsAwaitingConfirmation) return;
-
             StartCoroutine(ConfirmAndSelect(eventData));
         }
     }
@@ -121,10 +85,12 @@ public class ModuleButton : Button
 
         base.OnPointerClick(eventData);
 
-        characteristics.StopAllPreviews();
-        yield return StartCoroutine(characteristics.ApplyChangesCoroutine());
-
+        if (TryGetComponent<UIModule>(out UIModule module))
+        {
+            characteristics.ApplyChanges(module);
+        }
         characteristics.SetCelectedModule(this);
+        yield break;
     }
 
     public void ResetConfirmation()
@@ -141,6 +107,7 @@ public class ModuleButton : Button
         {
             characteristics.StopAllPreviews();
             characteristics.SetNeedToReset(true);
+            characteristics.CancelPreview();
         }
 
         DoStateTransition(SelectionState.Normal, false);
@@ -149,9 +116,7 @@ public class ModuleButton : Button
     protected override void OnDestroy()
     {
         if (pendingButton == this)
-        {
             pendingButton = null;
-        }
         base.OnDestroy();
     }
 }

@@ -8,4 +8,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Main/Main.unity
     guid: fcd771d5f1fcd23449ff705dd4471c94
+  - enabled: 1
+    path: Assets/Scenes/Main/CharacterEditor.unity
+    guid: 63b0470e948e15b4ebcf5f2438835c08
   m_configObjects: {}
